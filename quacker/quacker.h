@@ -70,6 +70,7 @@ class QuackerSettings;
 class Settings;
 class SimViewer;
 class View;
+class Macondo;
 
 class TopLevel : public QMainWindow
 {
@@ -313,7 +314,7 @@ private:
 
 	QVBoxLayout *m_leftSideLayout;
 
-	enum TabIndex { HistoryTabIndex = 0, ChoicesTabIndex = 1, SettingsTabIndex = 2};
+	enum TabIndex { HistoryTabIndex = 0, ChoicesTabIndex = 1, SettingsTabIndex = 2, MacondoTabIndex = 3 };
 	QTabWidget *m_tabWidget;
 
 	HistoryView *m_history;
@@ -325,6 +326,7 @@ private:
 	QFrame *m_frameWidget;
 
 	Settings *m_settings;
+	Macondo *m_macondo;
 
 	ListerDialog *m_listerDialog;
 	void updateListerDialogWithRack();

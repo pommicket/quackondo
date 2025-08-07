@@ -39,6 +39,7 @@ set(QUACKLE_SOURCES
 	letterboxsettings.cpp
 	lexicondialog.cpp
 	lister.cpp
+	macondo.cpp
 	main.cpp
 	movebox.cpp
 	newgame.cpp
@@ -72,6 +73,7 @@ set(QUACKLE_HEADERS
 	letterboxsettings.h
 	lexicondialog.h
 	lister.h
+	macondo.h
 	movebox.h
 	newgame.h
 	noteeditor.h

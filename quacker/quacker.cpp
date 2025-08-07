@@ -42,6 +42,7 @@
 #include "lister.h"
 #include "letterbox.h"
 #include "lexiconparameters.h"
+#include "macondo.h"
 #include "movebox.h"
 #include "noteeditor.h"
 #include "newgame.h"
@@ -67,7 +68,7 @@ TopLevel::TopLevel(QWidget *parent)
 	qRegisterMetaType<OppoThread*>("OppoThread*");
 
 	m_quackerSettings = new QuackerSettings;
-
+	m_macondo = new Macondo;
 	m_settings = new Settings;
 	m_settings->preInitialize();
 	m_settings->createGUI();
@@ -2005,6 +2006,7 @@ void TopLevel::createWidgets()
 	m_tabWidget->addTab(m_history, tr("Histor&y"));
 	m_tabWidget->addTab(m_choicesWidget, tr("&Choices"));
 	m_tabWidget->addTab(m_settings, tr("Se&ttings"));
+	m_tabWidget->addTab(m_macondo, tr("&Macondo"));
 
 	GraphicalFactory factory;
 	m_brb = new BRB(&factory);
