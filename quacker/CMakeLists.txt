@@ -40,6 +40,7 @@ set(QUACKLE_SOURCES
 	lexicondialog.cpp
 	lister.cpp
 	macondo.cpp
+	macondobackend.cpp
 	main.cpp
 	movebox.cpp
 	newgame.cpp
@@ -74,6 +75,7 @@ set(QUACKLE_HEADERS
 	lexicondialog.h
 	lister.h
 	macondo.h
+	macondobackend.h
 	movebox.h
 	newgame.h
 	noteeditor.h

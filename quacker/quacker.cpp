@@ -1293,7 +1293,10 @@ void TopLevel::loadFile(const QString &filename)
 	}
 
 	QTextStream stream(&file);
+	delete m_game;
 	m_game = logania->read(stream, QuackleIO::Logania::MaintainBoardPreparation);
+	delete m_macondo;
+	m_macondo = new Macondo(m_game);
 
 	file.close();
 
@@ -2001,9 +2004,7 @@ void TopLevel::createWidgets()
 	m_history = new History;
 	plugIntoHistoryMatrix(m_history);
 
-	m_macondo = new Macondo(this);
-	plugIntoMatrix(m_macondo);
-	plugIntoPositionMatrix(m_macondo);
+	m_macondo = new Macondo(m_game);
 
 	m_tabWidget = new QTabWidget;
 	m_tabWidget->addTab(m_history, tr("Histor&y"));
