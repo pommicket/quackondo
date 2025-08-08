@@ -1,18 +1,13 @@
-#ifndef MACONDO_BACKEND_H_
-#define MACONDO_BACKEND_H_
+#ifndef MACONDO_BACKEND_H
+#define MACONDO_BACKEND_H
 
-#include <QObject>
 #include <QProcess>
 
 namespace Quackle {
 	class Game;
 }
 
-enum class MacondoCommand {
-	None,
-	Simulate,
-	Solve,
-};
+class QTimer;
 
 class MacondoBackend: public QObject {
 Q_OBJECT
@@ -30,19 +25,26 @@ public:
 	void simulate(const SimulateOptions &);
 	~MacondoBackend();
 	std::string getSimResults();
-	inline MacondoCommand command() const { return m_command; }
 protected slots:
 	void processStarted();
 	void processFinished(int, QProcess::ExitStatus);
+	void timer();
 private:
+	enum class Command {
+		None,
+		Simulate,
+		Solve,
+	};
 	void loadGCG();
 	void killProcess();
 	std::string m_execPath;
 	std::string m_tempGCG;
 	QProcess *m_process = nullptr;
+	QTimer *m_updateTimer = nullptr;
 	bool m_runningSimulation = false;
 	Quackle::Game *m_game;
-	MacondoCommand m_command = MacondoCommand::None;
+	QByteArray m_processOutput;
+	Command m_command = Command::None;
 };
 
 #endif

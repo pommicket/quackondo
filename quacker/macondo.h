@@ -1,3 +1,6 @@
+#ifndef MACONDO_H
+#define MACONDO_H
+
 #include <QWidget>
 
 class QPushButton;
@@ -13,7 +16,6 @@ public:
 	Macondo(Quackle::Game *);
 public slots:
 	void simulate();
-	void updateResults();
 private:
 	enum class Command {
 		None,
@@ -21,8 +23,9 @@ private:
 		Solve,
 	};
 	QPushButton *m_simulateButton;
-	QTimer *m_updateTimer;
 	MacondoBackend *m_backend;
 	int m_viewingPlyNumber = 0;
 	Command m_command = Command::None;
 };
+
+#endif

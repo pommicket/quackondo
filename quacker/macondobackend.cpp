@@ -4,6 +4,7 @@
 
 #include <QFile>
 #include <QProcess>
+#include <QTimer>
 #include <QTextStream>
 #include <random>
 
@@ -26,29 +27,71 @@ static int getPlyNumber(const Quackle::GamePosition &position) {
 MacondoBackend::MacondoBackend(Quackle::Game *game, const InitOptions &options) {
 	m_execPath = options.execPath;
 	m_game = game;
+	m_updateTimer = new QTimer(this);
+	m_updateTimer->setInterval(1000);
+	connect(m_updateTimer, SIGNAL(timeout()), this, SLOT(timer()));
+	m_updateTimer->start();
 }
 
 void MacondoBackend::simulate(const SimulateOptions &) {
 	if (m_process) return;
 	printf("running macondo %s\n", m_execPath.c_str());
-	m_process = new QProcess;
+	m_process = new QProcess(this);
 	QStringList args;
 	m_process->start(m_execPath.c_str(), args);
 	connect(m_process, SIGNAL(started()), this, SLOT(processStarted()));
 	connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
-	m_command = MacondoCommand::Simulate;
+	m_command = Command::Simulate;
+}
+
+void MacondoBackend::timer() {
+	if (m_process) {
+		QByteArray data = m_process->readAllStandardError();
+		fprintf(stderr,"%s",data.constData());
+		data = m_process->readAllStandardOutput();
+		m_processOutput.append(data);
+		fflush(stdout);
+	}
+	switch (m_command) {
+	case Command::None:
+		break;
+	case Command::Simulate:
+		if (m_runningSimulation) {
+			m_process->write("sim show\n");
+		}
+		{
+			QByteArray playsStartIdentifier("Play                Leave         Score    Win%            Equity");
+			QByteArray playsEndIdentifier("Iterations:");
+			int start = m_processOutput.indexOf(playsStartIdentifier) + playsStartIdentifier.length();
+			if (start < 0) return;
+			// trim whitespace before plays
+			while (start < m_processOutput.length()
+				&& strchr(" \r\n", m_processOutput[start])) {
+				start++;
+			}
+			int end = m_processOutput.indexOf(playsEndIdentifier, start);
+			if (end < 0) return;
+			std::string plays(m_processOutput.constData() + start, end - start);
+			m_processOutput.remove(0, end);
+			printf("%s\n",plays.c_str());
+		}
+		break;
+	case Command::Solve:
+		// TODO
+		break;
+	}
 }
 
 void MacondoBackend::processStarted() {
 	loadGCG();
 	switch (m_command) {
-	case MacondoCommand::None:
+	case Command::None:
 		throw "process started with no command";
-	case MacondoCommand::Simulate:
+	case Command::Simulate:
 		m_process->write("gen\nsim\n");
 		m_runningSimulation = true;
 		break;
-	case MacondoCommand::Solve:
+	case Command::Solve:
 		// TODO
 		break;
 	}
@@ -85,26 +128,16 @@ void MacondoBackend::loadGCG() {
 void MacondoBackend::killProcess() {
 	if (m_process) {
 		m_process->kill();
+		m_process->deleteLater();
+		m_process = nullptr;
 	}
 }
 
 void MacondoBackend::processFinished(int, QProcess::ExitStatus) {
-	delete m_process;
-	m_process = nullptr;
-}
-
-std::string MacondoBackend::getSimResults() {
-	if (m_runningSimulation) {
-		m_process->write("sim show\n");
-	}
-	QByteArray data = m_process->readAllStandardError();
-	fprintf(stderr,"%s",data.constData());
-	data = m_process->readAllStandardOutput();
-	printf("%s", data.constData());
-	fflush(stdout);
-	return "";
 }
 
 MacondoBackend::~MacondoBackend() {
-	killProcess();
+	if (m_process) {
+		m_process->kill();
+	}
 }
