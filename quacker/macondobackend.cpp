@@ -1,3 +1,4 @@
+#include "datamanager.h"
 #include "macondobackend.h"
 #include "quackleio/gcgio.h"
 #include "game.h"
@@ -7,6 +8,8 @@
 #include <QTimer>
 #include <QTextStream>
 #include <random>
+
+using std::string;
 
 static int getPlyNumber(const Quackle::GamePosition &position) {
 	int playerIndex = 0, numPlayers = position.players().size();
@@ -44,6 +47,56 @@ void MacondoBackend::simulate(const SimulateOptions &) {
 	m_command = Command::Simulate;
 }
 
+static string trimLeft(const string &s) {
+	int i;
+	for (i = 0; strchr(" \t\r\n", s[i]); i++);
+	return s.substr(i);
+}
+
+static Quackle::Move extractSimMove(const string &s) {
+	string play = trimLeft(s);
+	if (play.find("(exch ") == 0) {
+		// exchange
+	} else if (strchr("123456789ABCDEFGHIJKLMNO", play[0])) {
+		// normal play
+		size_t space = play.find(" ");
+		if (space == string::npos)
+			throw "no space after placement";
+		string placement = play.substr(0, space);
+		play = trimLeft(play.substr(space));
+		space = play.find(" ");
+		if (space == string::npos)
+			throw "no space after move description";
+		string description = play.substr(0, space);
+		Quackle::Move move = Quackle::Move::createPlaceMove(placement, "A");
+		move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(description.c_str()));
+		return move;
+	}
+	throw "bad syntax";
+}
+
+static std::vector<Quackle::Move> extractSimMoves(QByteArray &processOutput) {
+	std::vector<Quackle::Move> moves;
+	QByteArray playsStartIdentifier("Play                Leave         Score    Win%            Equity");
+	QByteArray playsEndIdentifier("Iterations:");
+	int start = processOutput.indexOf(playsStartIdentifier) + playsStartIdentifier.length();
+	if (start < 0) return moves;
+	int end = processOutput.indexOf(playsEndIdentifier, start);
+	if (end < 0) return moves;
+	string plays(processOutput.constData() + start, end - start);
+	processOutput.remove(0, end);
+	plays = trimLeft(plays);
+	for (size_t i = 0, next; (next = plays.find("\n", i)) != string::npos; i = next + 1) {
+		string play = plays.substr(i, next - i);
+		try {
+			moves.push_back(extractSimMove(play));
+		} catch (const char *s) {
+			fprintf(stderr, "WARNING: unrecognized play: %s (%s)\n", play.c_str(), s);
+		}
+	}
+	return moves;
+}
+
 void MacondoBackend::timer() {
 	if (m_process) {
 		QByteArray data = m_process->readAllStandardError();
@@ -60,20 +113,9 @@ void MacondoBackend::timer() {
 			m_process->write("sim show\n");
 		}
 		{
-			QByteArray playsStartIdentifier("Play                Leave         Score    Win%            Equity");
-			QByteArray playsEndIdentifier("Iterations:");
-			int start = m_processOutput.indexOf(playsStartIdentifier) + playsStartIdentifier.length();
-			if (start < 0) return;
-			// trim whitespace before plays
-			while (start < m_processOutput.length()
-				&& strchr(" \r\n", m_processOutput[start])) {
-				start++;
-			}
-			int end = m_processOutput.indexOf(playsEndIdentifier, start);
-			if (end < 0) return;
-			std::string plays(m_processOutput.constData() + start, end - start);
-			m_processOutput.remove(0, end);
-			printf("%s\n",plays.c_str());
+			std::vector<Quackle::Move> moves = extractSimMoves(m_processOutput);
+			if (!moves.empty())
+				emit gotSimMoves(moves);
 		}
 		break;
 	case Command::Solve:

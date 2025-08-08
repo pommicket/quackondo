@@ -5,6 +5,7 @@
 
 namespace Quackle {
 	class Game;
+	class Move;
 }
 
 class QTimer;
@@ -25,6 +26,8 @@ public:
 	void simulate(const SimulateOptions &);
 	~MacondoBackend();
 	std::string getSimResults();
+signals:
+	void gotSimMoves(const std::vector<Quackle::Move> &moves);
 protected slots:
 	void processStarted();
 	void processFinished(int, QProcess::ExitStatus);

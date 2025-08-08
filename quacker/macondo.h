@@ -7,6 +7,7 @@ class QPushButton;
 class QTimer;
 namespace Quackle {
 	class Game;
+	class Move;
 }
 class MacondoBackend;
 
@@ -16,6 +17,8 @@ public:
 	Macondo(Quackle::Game *);
 public slots:
 	void simulate();
+private slots:
+	void gotSimMoves(const std::vector<Quackle::Move> &moves);
 private:
 	enum class Command {
 		None,
