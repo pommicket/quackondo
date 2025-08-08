@@ -68,7 +68,7 @@ TopLevel::TopLevel(QWidget *parent)
 	qRegisterMetaType<OppoThread*>("OppoThread*");
 
 	m_quackerSettings = new QuackerSettings;
-	m_macondo = new Macondo;
+	m_macondo = new Macondo(this);
 	m_settings = new Settings;
 	m_settings->preInitialize();
 	m_settings->createGUI();

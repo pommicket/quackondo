@@ -5,8 +5,10 @@
 #include <QPushButton>
 #include <QProcess>
 #include <QTimer>
+#include <random>
 
-Macondo::Macondo(QWidget *parent) : QWidget(parent) {
+Macondo::Macondo(TopLevel *topLevel) : QWidget() {
+	m_topLevel = topLevel;
 	m_updateTimer = new QTimer(this);
 	QGridLayout *layout = new QGridLayout(this);
 	m_runButton = new QPushButton(tr("Run"));
@@ -32,7 +34,20 @@ void Macondo::run() {
 
 void Macondo::processStarted() {
 	m_updateTimer->start();
-	m_process->write("help\n");
+	std::default_random_engine rand;
+	std::uniform_int_distribution<int> distribution(0, 26);
+	// save game file with random name
+	char filename[] = "tmpGameXXXXXXXXXXXX.gcg";
+	for (int i = 0; filename[i]; i++) {
+		if (filename[i] == 'X') {
+			filename[i] = distribution(rand) + 'A';
+		}
+	}
+	m_topLevel->writeFile(filename);
+	std::string command = "load ";
+	command += filename;
+	command += "\n";
+	m_process->write(command.c_str());
 }
 
 void Macondo::updateResults() {
