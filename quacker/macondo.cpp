@@ -11,19 +11,19 @@ Macondo::Macondo(TopLevel *topLevel) : View() {
 	m_topLevel = topLevel;
 	m_updateTimer = new QTimer(this);
 	QGridLayout *layout = new QGridLayout(this);
-	m_runButton = new QPushButton(tr("Run"));
-	layout->addWidget(m_runButton, 0, 0);
+	m_simulateButton = new QPushButton(tr("Simulate"));
+	layout->addWidget(m_simulateButton, 0, 0);
 	layout->setAlignment(Qt::AlignTop);
 	const char *home = getenv("HOME");
 	// TODO: configurable path
 	m_execPath = home ? home : "/";
 	m_execPath += "/apps/macondo/macondo";
-	connect(m_runButton, SIGNAL(clicked()), this, SLOT(run()));
+	connect(m_simulateButton, SIGNAL(clicked()), this, SLOT(simulate()));
 	connect(m_updateTimer, SIGNAL(timeout()), this, SLOT(updateResults()));
-	m_updateTimer->setInterval(100);
+	m_updateTimer->setInterval(1000);
 }
 
-void Macondo::run() {
+void Macondo::simulate() {
 	if (m_process) return;
 	printf("running macondo %s\n", m_execPath.c_str());
 	m_process = new QProcess;
@@ -31,11 +31,23 @@ void Macondo::run() {
 	m_process->start(m_execPath.c_str(), args);
 	connect(m_process, SIGNAL(started()), this, SLOT(processStarted()));
 	connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
+	m_command = Command::Simulate;
 }
 
 void Macondo::processStarted() {
 	m_updateTimer->start();
 	loadGCG();
+	switch (m_command) {
+	case Command::None:
+		throw "process started with no command";
+	case Command::Simulate:
+		m_process->write("gen\nsim\n");
+		m_runningSimulation = true;
+		break;
+	case Command::Solve:
+		// TODO
+		break;
+	}
 }
 
 void Macondo::killProcess() {
@@ -66,12 +78,14 @@ void Macondo::loadGCG() {
 	m_topLevel->writeFile(filename);
 	std::stringstream commands;
 	commands << "load " << filename << "\n"
-		<< "turn " << plyNumber << "\n";
+		<< "turn " << m_viewingPlyNumber << "\n";
 	m_process->write(commands.str().c_str());
 }
 
 void Macondo::updateResults() {
-	QProcess::ProcessState state = m_process->state();
+	if (m_runningSimulation) {
+		m_process->write("sim show\n");
+	}
 	QByteArray data = m_process->readAllStandardError();
 	printf("%s",data.constData());
 	data = m_process->readAllStandardOutput();
@@ -90,9 +104,6 @@ void Macondo::positionChanged(const Quackle::GamePosition *position) {
 	if (playerIndex >= numPlayers) {
 		throw "couldn't find player in player list";
 	}
-	plyNumber = (position->turnNumber() - 1) * numPlayers
+	m_viewingPlyNumber = (position->turnNumber() - 1) * numPlayers
 		+ playerIndex;
-	if (m_process && m_process->state() != QProcess::Starting) {
-		loadGCG();
-	}
 }
