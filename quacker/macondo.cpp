@@ -7,7 +7,7 @@
 #include <QTimer>
 #include <random>
 
-Macondo::Macondo(TopLevel *topLevel) : QWidget() {
+Macondo::Macondo(TopLevel *topLevel) : View() {
 	m_topLevel = topLevel;
 	m_updateTimer = new QTimer(this);
 	QGridLayout *layout = new QGridLayout(this);
@@ -30,10 +30,30 @@ void Macondo::run() {
 	QStringList args;
 	m_process->start(m_execPath.c_str(), args);
 	connect(m_process, SIGNAL(started()), this, SLOT(processStarted()));
+	connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
 }
 
 void Macondo::processStarted() {
 	m_updateTimer->start();
+	loadGCG();
+}
+
+void Macondo::killProcess() {
+	if (m_process) {
+		m_process->kill();
+	}
+}
+
+void Macondo::processFinished(int, QProcess::ExitStatus) {
+	delete m_process;
+	m_process = nullptr;
+}
+
+Macondo::~Macondo() {
+	killProcess();
+}
+
+void Macondo::loadGCG() {
 	std::default_random_engine rand;
 	std::uniform_int_distribution<int> distribution(0, 26);
 	// save game file with random name
@@ -44,10 +64,10 @@ void Macondo::processStarted() {
 		}
 	}
 	m_topLevel->writeFile(filename);
-	std::string command = "load ";
-	command += filename;
-	command += "\n";
-	m_process->write(command.c_str());
+	std::stringstream commands;
+	commands << "load " << filename << "\n"
+		<< "turn " << plyNumber << "\n";
+	m_process->write(commands.str().c_str());
 }
 
 void Macondo::updateResults() {
@@ -57,4 +77,22 @@ void Macondo::updateResults() {
 	data = m_process->readAllStandardOutput();
 	printf("%s", data.constData());
 	fflush(stdout);
+}
+
+void Macondo::positionChanged(const Quackle::GamePosition *position) {
+	int playerIndex = 0, numPlayers = position->players().size();
+	for (const Quackle::Player &player: position->players()) {
+		if (player.id() == position->playerOnTurn().id()) {
+			break;
+		}
+		playerIndex++;
+	}
+	if (playerIndex >= numPlayers) {
+		throw "couldn't find player in player list";
+	}
+	plyNumber = (position->turnNumber() - 1) * numPlayers
+		+ playerIndex;
+	if (m_process && m_process->state() != QProcess::Starting) {
+		loadGCG();
+	}
 }

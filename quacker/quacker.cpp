@@ -68,7 +68,6 @@ TopLevel::TopLevel(QWidget *parent)
 	qRegisterMetaType<OppoThread*>("OppoThread*");
 
 	m_quackerSettings = new QuackerSettings;
-	m_macondo = new Macondo(this);
 	m_settings = new Settings;
 	m_settings->preInitialize();
 	m_settings->createGUI();
@@ -2001,6 +2000,10 @@ void TopLevel::createWidgets()
 
 	m_history = new History;
 	plugIntoHistoryMatrix(m_history);
+
+	m_macondo = new Macondo(this);
+	plugIntoMatrix(m_macondo);
+	plugIntoPositionMatrix(m_macondo);
 
 	m_tabWidget = new QTabWidget;
 	m_tabWidget->addTab(m_history, tr("Histor&y"));
