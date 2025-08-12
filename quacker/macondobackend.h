@@ -6,29 +6,31 @@
 namespace Quackle {
 	class Game;
 	class Move;
+	class MoveList;
 }
 
 class QTimer;
 
+struct MacondoInitOptions {
+	inline MacondoInitOptions(std::string execPath) {
+		this->execPath = execPath;
+	}
+	std::string execPath;
+};
+struct MacondoSimulateOptions {
+	inline MacondoSimulateOptions() {}
+};
+
 class MacondoBackend: public QObject {
 Q_OBJECT
 public:
-	struct InitOptions {
-		inline InitOptions(std::string execPath) {
-			this->execPath = execPath;
-		}
-		std::string execPath;
-	};
-	MacondoBackend(Quackle::Game *game, const InitOptions &);
-	struct SimulateOptions {
-		inline SimulateOptions() {}
-	};
-	void simulate(const SimulateOptions &);
+	MacondoBackend(Quackle::Game *game, const MacondoInitOptions &);
+	void simulate(const MacondoSimulateOptions &);
 	~MacondoBackend();
 	std::string getSimResults();
 signals:
-	void gotSimMoves(const std::vector<Quackle::Move> &moves);
-protected slots:
+	void gotSimMoves(const Quackle::MoveList &moves);
+private slots:
 	void processStarted();
 	void processFinished(int, QProcess::ExitStatus);
 	void timer();

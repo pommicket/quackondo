@@ -1295,8 +1295,7 @@ void TopLevel::loadFile(const QString &filename)
 	QTextStream stream(&file);
 	delete m_game;
 	m_game = logania->read(stream, QuackleIO::Logania::MaintainBoardPreparation);
-	delete m_macondo;
-	m_macondo = new Macondo(m_game);
+	m_macondo->setGame(m_game);
 
 	file.close();
 

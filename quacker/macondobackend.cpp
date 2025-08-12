@@ -55,7 +55,7 @@ static string trimLeft(const string &s) {
 }
 
 
-MacondoBackend::MacondoBackend(Quackle::Game *game, const InitOptions &options) {
+MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &options) {
 	m_execPath = options.execPath;
 	m_game = game;
 	m_updateTimer = new QTimer(this);
@@ -64,7 +64,7 @@ MacondoBackend::MacondoBackend(Quackle::Game *game, const InitOptions &options) 
 	m_updateTimer->start();
 }
 
-void MacondoBackend::simulate(const SimulateOptions &) {
+void MacondoBackend::simulate(const MacondoSimulateOptions &) {
 	if (m_process) return;
 	printf("running macondo %s\n", m_execPath.c_str());
 	m_process = new QProcess(this);
@@ -142,6 +142,7 @@ static Quackle::Move extractSimMove(const string &play) {
 		const string &winString = words[3 + !plays7];
 		const string &equityString = words[4 + !plays7];
 		Quackle::Move move = Quackle::Move::createExchangeMove(QUACKLE_ALPHABET_PARAMETERS->encode(tiles), false);
+		move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(tiles));
 		move.win = parseWinRate(winString);
 		move.equity = parseEquity(equityString);
 		return move;
@@ -165,6 +166,7 @@ static Quackle::Move extractSimMove(const string &play) {
 			i++;
 		}
 		Quackle::Move move = Quackle::Move::createPlaceMove(placement, QUACKLE_ALPHABET_PARAMETERS->encode(dotDescription));
+		move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(description));
 		move.score = parseScore(scoreString);
 		move.win = parseWinRate(winString);
 		move.equity = parseEquity(equityString);
@@ -174,8 +176,8 @@ static Quackle::Move extractSimMove(const string &play) {
 }
 
 // extract Quackle::Move from Macondo's sim output
-static vector<Quackle::Move> extractSimMoves(QByteArray &processOutput) {
-	vector<Quackle::Move> moves;
+static Quackle::MoveList extractSimMoves(QByteArray &processOutput) {
+	Quackle::MoveList moves;
 	QByteArray playsStartIdentifier("Play                Leave         Score    Win%            Equity");
 	QByteArray playsEndIdentifier("Iterations:");
 	int start = processOutput.indexOf(playsStartIdentifier) + playsStartIdentifier.length();
@@ -212,7 +214,7 @@ void MacondoBackend::timer() {
 			m_process->write("sim show\n");
 		}
 		{
-			vector<Quackle::Move> moves = extractSimMoves(m_processOutput);
+			Quackle::MoveList moves = extractSimMoves(m_processOutput);
 			if (!moves.empty()) {
 				// at this point the GCG is definitely fully loaded
 				removeTempGCG();
