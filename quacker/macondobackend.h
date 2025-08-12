@@ -40,6 +40,7 @@ private:
 	};
 	void loadGCG();
 	void killProcess();
+	void removeTempGCG();
 	std::string m_execPath;
 	std::string m_tempGCG;
 	QProcess *m_process = nullptr;

@@ -10,6 +10,7 @@
 #include <random>
 
 using std::string;
+using std::vector;
 
 static int getPlyNumber(const Quackle::GamePosition &position) {
 	int playerIndex = 0, numPlayers = position.players().size();
@@ -24,6 +25,33 @@ static int getPlyNumber(const Quackle::GamePosition &position) {
 	}
 	return (position.turnNumber() - 1) * numPlayers
 		+ playerIndex;
+}
+
+// locale-independent version of isspace
+static bool is_ascii_space(char c) {
+	return strchr(" \r\n\f\t\v", c) != nullptr;
+}
+
+static vector<string> split(const string &s) {
+	vector<string> words;
+	size_t i = 0;
+	while (i < s.size()) {
+		for (; is_ascii_space(s[i]); i++) {
+			if (i >= s.size())
+				return words;
+		}
+		size_t end = i + 1;
+		for (; end < s.size() && !is_ascii_space(s[end]); end++);
+		words.push_back(s.substr(i, end - i));
+		i = end;
+	}
+	return words;
+}
+
+static string trimLeft(const string &s) {
+	int i;
+	for (i = 0; is_ascii_space(s[i]); i++);
+	return s.substr(i);
 }
 
 
@@ -47,36 +75,107 @@ void MacondoBackend::simulate(const SimulateOptions &) {
 	m_command = Command::Simulate;
 }
 
-static string trimLeft(const string &s) {
-	int i;
-	for (i = 0; strchr(" \t\r\n", s[i]); i++);
-	return s.substr(i);
+static int parseScore(const string &scoreString) {
+	size_t scoreLen;
+	int score = 0;
+	try {
+		score = std::stoi(scoreString, &scoreLen);
+		if (scoreLen != scoreString.length()) {
+			qWarning("move score of '%s' is invalid", scoreString.c_str());
+			score = 0;
+		}
+	} catch (const std::invalid_argument &) {
+	} catch (const std::out_of_range &) {
+	}
+	return score;
 }
 
-static Quackle::Move extractSimMove(const string &s) {
-	string play = trimLeft(s);
-	if (play.find("(exch ") == 0) {
+static double parseWinRate(const string &winString) {
+	size_t winLen;
+	double win = 0.0;
+	try {
+		win = std::stod(winString, &winLen);
+		if (winLen < winString.length() && winString.substr(winLen, strlen("±")) != string("±")) {
+			qWarning("move win rate of '%s' is invalid", winString.c_str());
+		}
+	} catch (const std::invalid_argument &) {
+	} catch (const std::out_of_range &) {
+	}
+	return win / 100;
+}
+
+static double parseEquity(const string &equityString) {
+	size_t equityLen;
+	double equity = 0.0;
+	try {
+		equity = std::stod(equityString, &equityLen);
+		if (equityLen < equityString.length() && equityString.substr(equityLen, strlen("±")) != string("±")) {
+			qWarning("move equality of '%s' is invalid", equityString.c_str());
+		}
+	} catch (const std::invalid_argument &) {
+	} catch (const std::out_of_range &) {
+	}
+	return equity;
+}
+
+// parse move from Macondo sim
+static Quackle::Move extractSimMove(const string &play) {
+	vector<string> words = split(play);
+	bool plays7 = words.size() == 5; // bingo/exchange 7 => no leave in output
+	if (!plays7 && words.size() != 6) {
+		throw "want 6 or 7 space-separated parts in play";
+	}
+	if (play.find("(Pass)") != string::npos) {
+		if (!plays7) throw "want 6 space-separated parts in pass";
+		const string &winString = words[3];
+		const string &equityString = words[4];
+		Quackle::Move move = Quackle::Move::createPassMove();
+		move.win = parseWinRate(winString);
+		move.equity = parseEquity(equityString);
+		return move;
+	} else if (play.find("(exch ") != string::npos) {
 		// exchange
-	} else if (strchr("123456789ABCDEFGHIJKLMNO", play[0])) {
+		string tiles = words[1];
+		if (tiles[tiles.length() - 1] != ')')
+			throw "expected ) following (exch";
+		tiles.pop_back();
+		const string &winString = words[3 + !plays7];
+		const string &equityString = words[4 + !plays7];
+		Quackle::Move move = Quackle::Move::createExchangeMove(QUACKLE_ALPHABET_PARAMETERS->encode(tiles), false);
+		move.win = parseWinRate(winString);
+		move.equity = parseEquity(equityString);
+		return move;
+	} else {
 		// normal play
-		size_t space = play.find(" ");
-		if (space == string::npos)
-			throw "no space after placement";
-		string placement = play.substr(0, space);
-		play = trimLeft(play.substr(space));
-		space = play.find(" ");
-		if (space == string::npos)
-			throw "no space after move description";
-		string description = play.substr(0, space);
-		Quackle::Move move = Quackle::Move::createPlaceMove(placement, "A");
-		move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(description.c_str()));
+		const string &placement = words[0];
+		const string &description = words[1];
+		const string &scoreString = words[2 + !plays7];
+		const string &winString = words[3 + !plays7];
+		const string &equityString = words[4 + !plays7];
+		string dotDescription;
+		for (size_t i = 0; i < description.size();) {
+			size_t j = description.find("(", i);
+			if (j == string::npos) {
+				dotDescription += description.substr(i);
+				break;
+			}
+			dotDescription += description.substr(i, j) + ".";
+			i = description.find(")", j);
+			if (i == string::npos) throw "mismatched parentheses";
+			i++;
+		}
+		Quackle::Move move = Quackle::Move::createPlaceMove(placement, QUACKLE_ALPHABET_PARAMETERS->encode(dotDescription));
+		move.score = parseScore(scoreString);
+		move.win = parseWinRate(winString);
+		move.equity = parseEquity(equityString);
 		return move;
 	}
 	throw "bad syntax";
 }
 
-static std::vector<Quackle::Move> extractSimMoves(QByteArray &processOutput) {
-	std::vector<Quackle::Move> moves;
+// extract Quackle::Move from Macondo's sim output
+static vector<Quackle::Move> extractSimMoves(QByteArray &processOutput) {
+	vector<Quackle::Move> moves;
 	QByteArray playsStartIdentifier("Play                Leave         Score    Win%            Equity");
 	QByteArray playsEndIdentifier("Iterations:");
 	int start = processOutput.indexOf(playsStartIdentifier) + playsStartIdentifier.length();
@@ -113,9 +212,12 @@ void MacondoBackend::timer() {
 			m_process->write("sim show\n");
 		}
 		{
-			std::vector<Quackle::Move> moves = extractSimMoves(m_processOutput);
-			if (!moves.empty())
+			vector<Quackle::Move> moves = extractSimMoves(m_processOutput);
+			if (!moves.empty()) {
+				// at this point the GCG is definitely fully loaded
+				removeTempGCG();
 				emit gotSimMoves(moves);
+			}
 		}
 		break;
 	case Command::Solve:
@@ -142,10 +244,8 @@ void MacondoBackend::processStarted() {
 void MacondoBackend::loadGCG() {
 	std::random_device randDev;
 	std::mt19937 rand(randDev());
-	std::uniform_int_distribution<int> distribution(0, 26);
-	if (!m_tempGCG.empty()) {
-		remove(m_tempGCG.c_str());
-	}
+	std::uniform_int_distribution<int> distribution(0, 25);
+	removeTempGCG();
 	// save game file with random name
 	char filename[] = "tmpGameXXXXXXXXXXXX.gcg";
 	for (int i = 0; filename[i]; i++) {
@@ -176,6 +276,14 @@ void MacondoBackend::killProcess() {
 }
 
 void MacondoBackend::processFinished(int, QProcess::ExitStatus) {
+}
+
+// remove temporary GCG file if it still exists
+void MacondoBackend::removeTempGCG() {
+	if (!m_tempGCG.empty()) {
+		remove(m_tempGCG.c_str());
+		m_tempGCG.clear();
+	}
 }
 
 MacondoBackend::~MacondoBackend() {
