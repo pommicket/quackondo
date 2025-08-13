@@ -26,6 +26,7 @@
 
 namespace Quackle
 {
+	class Game;
 	class GamePosition;
 	class History;
 	class HistoryLocation;
@@ -85,6 +86,9 @@ public slots:
 	// called when user starts a simulation and this move list should
 	// supercede that from the position
 	virtual void movesChanged(const Quackle::MoveList *moves);
+
+	// called whenever the game pointer changes
+	virtual void gameChanged(Quackle::Game *);
 
 	virtual void grabFocus();
 

@@ -54,6 +54,11 @@ void View::movesChanged(const Quackle::MoveList *moves)
 		it->movesChanged(moves);
 }
 
+void View::gameChanged(Quackle::Game *game) {
+	for (auto& it : m_subviews)
+		it->gameChanged(game);
+}
+
 void View::connectSubviewSignals()
 {
 	for (auto& it : m_subviews)

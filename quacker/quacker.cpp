@@ -401,7 +401,7 @@ void TopLevel::setCandidateMove(const Quackle::Move *move, bool *carryOnPtr)
 	// a check if we have simulation results -- but we don't want to send out
 	// a moves changed signal if we don't have results because
 	// we just sent out a position changed signal
-	if (m_simulator->hasSimulationResults())
+	if (m_simulator->hasSimulationResults() || m_macondo->hasMoves())
 		updateMoveViews();
 }
 
@@ -619,11 +619,11 @@ void TopLevel::updatePositionViews()
 	updateListerDialogWithRack();
 }
 
-void TopLevel::updateMoveViews(const Quackle::MoveList *providedList)
+void TopLevel::updateMoveViews()
 {
 	Quackle::MoveList list;
-	if (providedList) {
-		list = *providedList;
+	if (m_macondo->hasMoves()) {
+		list = m_macondo->getMoves();
 	}
 	else if (m_simulator->hasSimulationResults())
 	{
@@ -843,6 +843,7 @@ void TopLevel::plugIntoMatrix(View *view)
 	connect(view, SIGNAL(commit()), this, SLOT(commit()));
 	connect(view, SIGNAL(setRack(const Quackle::Rack &)), this, SLOT(setRack(const Quackle::Rack &)));
 	connect(view, SIGNAL(setNote(const UVString &)), this, SLOT(setNote(const UVString &)));
+	connect(this, SIGNAL(gameChanged(Quackle::Game *)), view, SLOT(gameChanged(Quackle::Game *)));
 }
 
 void TopLevel::plugIntoPositionMatrix(View *view)
@@ -1055,7 +1056,12 @@ void TopLevel::simulate(bool startSimulation)
 	// it's not so useful to have sim control show/hide
 	// like this
 	//m_simulatorWidget->setVisible(startSimulation);
-
+	if (m_macondo->useForSimulation()) {
+		if (startSimulation)
+			m_macondo->simulate();
+		else
+			m_macondo->stop();
+	}
 	if (startSimulation)
 	{
 		logfileChanged();
@@ -1069,15 +1075,6 @@ void TopLevel::simulateToggled(bool startSimulation)
 {
 	if (!m_game->hasPositions())
 		return;
-
-	if (m_macondo->useForSimulation()) {
-		if (startSimulation) {
-			m_macondo->simulate();
-		} else {
-			m_macondo->stop();
-		}
-		return;
-	}
 
 	simulate(startSimulation);
 
@@ -1254,8 +1251,19 @@ void TopLevel::showSimulationDetails()
 
 void TopLevel::incrementSimulation()
 {
-	if (m_simulateAction->isChecked())
-	{
+	if (!m_simulateAction->isChecked())
+		return;
+	
+	if (m_macondo->useForSimulation()) {
+		if (m_macondo->anyUpdates()) {
+			updateMoveViews();
+			updateSimViews();
+		}
+		// check again in 100ms
+		m_simulationTimer->start(100);
+	} else {
+		// clear Macondo moves to make way for Simulator moves
+		m_macondo->clearMoves();
 		m_simulator->simulate(m_plies);
 		m_simulationTimer->start(0);
 
@@ -1307,7 +1315,7 @@ void TopLevel::loadFile(const QString &filename)
 	QTextStream stream(&file);
 	delete m_game;
 	m_game = logania->read(stream, QuackleIO::Logania::MaintainBoardPreparation);
-	m_macondo->setGame(m_game);
+	emit gameChanged(m_game);
 
 	file.close();
 
@@ -2015,9 +2023,9 @@ void TopLevel::createWidgets()
 	m_history = new History;
 	plugIntoHistoryMatrix(m_history);
 
-	m_macondo = new Macondo(m_game, m_moveBox);
+	m_macondo = new Macondo(m_game);
 	plugIntoMatrix(m_macondo);
-	connect(m_macondo, SIGNAL(newMoves(const Quackle::MoveList *)), this, SLOT(updateMoveViews(const Quackle::MoveList *)));
+	plugIntoPositionMatrix(m_macondo);
 
 	m_tabWidget = new QTabWidget;
 	m_tabWidget->addTab(m_history, tr("Histor&y"));

@@ -66,7 +66,6 @@ class BaseView;
 class HistoryView;
 class Letterbox;
 class ListerDialog;
-class MoveBox;
 class QuackerSettings;
 class Settings;
 class SimViewer;
@@ -201,6 +200,10 @@ protected slots:
 	// update *positional* views - emit positionChanged
 	void updatePositionViews();
 
+	// updates move views from either simulation results if available
+	// or kibitzed moves
+	void updateMoveViews();
+
 	// update history views when a new position is added
 	void updateHistoryViews();
 
@@ -229,11 +232,6 @@ protected slots:
 	void startBirthday();
 	void birthdayBash();
 	void birthdayGram(int index, bool on);
-public slots:
-	// updates move views from either provided list,
-	// or simulation results if available,
-	// or kibitzed moves
-	void updateMoveViews(const Quackle::MoveList *list = nullptr);
 
 signals:
 	// emitted when views (eg board) should update based on the
@@ -245,6 +243,9 @@ signals:
 
 	// emitted when views of history must update
 	void historyChanged(const Quackle::History &history);
+
+	// emitted when game pointer is changed
+	void gameChanged(Quackle::Game *game);
 
 protected:
 	Quackle::DataManager m_dataManager;
@@ -323,7 +324,7 @@ private:
 	HistoryView *m_dashboard;
 
 	QWidget *m_choicesWidget;
-	MoveBox *m_moveBox;
+	View *m_moveBox;
 	View *m_noteEditor;
 	QFrame *m_frameWidget;
 

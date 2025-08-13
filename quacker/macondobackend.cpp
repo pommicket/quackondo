@@ -1,5 +1,5 @@
-#include "datamanager.h"
 #include "macondobackend.h"
+#include "datamanager.h"
 #include "quackleio/gcgio.h"
 #include "game.h"
 
@@ -218,7 +218,7 @@ void MacondoBackend::timer() {
 			if (!moves.empty()) {
 				// at this point the GCG is definitely fully loaded
 				removeTempGCG();
-				emit gotSimMoves(&moves);
+				emit gotSimMoves(moves);
 			}
 		}
 		break;
