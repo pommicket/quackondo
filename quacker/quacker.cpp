@@ -619,18 +619,21 @@ void TopLevel::updatePositionViews()
 	updateListerDialogWithRack();
 }
 
-void TopLevel::updateMoveViews()
+void TopLevel::updateMoveViews(const Quackle::MoveList *providedList)
 {
-	if (m_simulator->hasSimulationResults())
+	Quackle::MoveList list;
+	if (providedList) {
+		list = *providedList;
+	}
+	else if (m_simulator->hasSimulationResults())
 	{
-		const Quackle::MoveList& moveList = m_simulator->moves(/* prune */ true, /* sort by win */ true);
-		emit movesChanged(&moveList);
+		list = m_simulator->moves(/* prune */ true, /* sort by win */ true);
 	}
 	else
 	{
-		const Quackle::MoveList moveList = m_game->currentPosition().moves();
-		emit movesChanged(&moveList);
+		list = m_game->currentPosition().moves();
 	}
+	emit movesChanged(&list);
 
 	m_simulateAction->setEnabled(!m_game->currentPosition().moves().empty());
 	m_simulateDetailsAction->setEnabled(!m_game->currentPosition().moves().empty());
@@ -1066,6 +1069,15 @@ void TopLevel::simulateToggled(bool startSimulation)
 {
 	if (!m_game->hasPositions())
 		return;
+
+	if (m_macondo->useForSimulation()) {
+		if (startSimulation) {
+			m_macondo->simulate();
+		} else {
+			m_macondo->stop();
+		}
+		return;
+	}
 
 	simulate(startSimulation);
 
@@ -2003,7 +2015,9 @@ void TopLevel::createWidgets()
 	m_history = new History;
 	plugIntoHistoryMatrix(m_history);
 
-	m_macondo = new Macondo(m_game);
+	m_macondo = new Macondo(m_game, m_moveBox);
+	plugIntoMatrix(m_macondo);
+	connect(m_macondo, SIGNAL(newMoves(const Quackle::MoveList *)), this, SLOT(updateMoveViews(const Quackle::MoveList *)));
 
 	m_tabWidget = new QTabWidget;
 	m_tabWidget->addTab(m_history, tr("Histor&y"));

@@ -1,9 +1,10 @@
 #ifndef MACONDO_H
 #define MACONDO_H
 
-#include <QWidget>
+#include "view.h"
+#include "game.h"
 
-class QPushButton;
+class QCheckBox;
 class QTimer;
 namespace Quackle {
 	class Game;
@@ -12,27 +13,26 @@ namespace Quackle {
 class MacondoBackend;
 struct MacondoInitOptions;
 class MoveBox;
-class Macondo : public QWidget {
+class Macondo : public View {
 Q_OBJECT
 public:
-	Macondo(Quackle::Game *);
+	Macondo(Quackle::Game *, MoveBox *);
 	~Macondo();
 	void setGame(Quackle::Game *);
+	// stop current analysis
+	void stop();
+	// should Macondo be used for simulations?
+	bool useForSimulation() const;
+signals:
+	void newMoves(const Quackle::MoveList *);
 public slots:
 	void simulate();
-private slots:
-	void gotSimMoves(const Quackle::MoveList &moves);
 private:
-	enum class Command {
-		None,
-		Simulate,
-		Solve,
-	};
-	QPushButton *m_simulateButton;
+	QCheckBox *m_useMacondo;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;
+	Quackle::MoveList m_moves;
 	int m_viewingPlyNumber = 0;
-	Command m_command = Command::None;
 	MoveBox *m_moveBox;
 	std::unique_ptr<MacondoInitOptions> initOptions;
 };

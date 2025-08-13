@@ -218,7 +218,7 @@ void MacondoBackend::timer() {
 			if (!moves.empty()) {
 				// at this point the GCG is definitely fully loaded
 				removeTempGCG();
-				emit gotSimMoves(moves);
+				emit gotSimMoves(&moves);
 			}
 		}
 		break;
@@ -270,11 +270,12 @@ void MacondoBackend::loadGCG() {
 }
 
 void MacondoBackend::killProcess() {
-	if (m_process) {
-		m_process->kill();
-		m_process->deleteLater();
-		m_process = nullptr;
-	}
+	// This will give an annoying "destroyed while process running" message,
+	// but there's no way of avoiding it while keeping this method synchronous.
+	// (Destroying the process while it's running does what we want anyways,
+	//  i.e., kills it)
+	delete m_process;
+	m_process = nullptr;
 }
 
 void MacondoBackend::processFinished(int, QProcess::ExitStatus) {
@@ -292,4 +293,12 @@ MacondoBackend::~MacondoBackend() {
 	if (m_process) {
 		m_process->kill();
 	}
+}
+
+
+void MacondoBackend::stop() {
+	killProcess();
+	removeTempGCG();
+	m_runningSimulation = false;
+	m_command = Command::None;
 }

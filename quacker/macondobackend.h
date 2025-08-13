@@ -28,8 +28,11 @@ public:
 	void simulate(const MacondoSimulateOptions &);
 	~MacondoBackend();
 	std::string getSimResults();
+	inline bool isRunning() const { return m_command != Command::None; }
+	// stop current Macondo analysis
+	void stop();
 signals:
-	void gotSimMoves(const Quackle::MoveList &moves);
+	void gotSimMoves(const Quackle::MoveList *moves);
 private slots:
 	void processStarted();
 	void processFinished(int, QProcess::ExitStatus);
@@ -47,6 +50,7 @@ private:
 	std::string m_tempGCG;
 	QProcess *m_process = nullptr;
 	QTimer *m_updateTimer = nullptr;
+	// is simulation being run right now? (i.e. has process been started & game been loaded?)
 	bool m_runningSimulation = false;
 	Quackle::Game *m_game;
 	QByteArray m_processOutput;
