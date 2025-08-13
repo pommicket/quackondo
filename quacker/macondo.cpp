@@ -34,7 +34,7 @@ void Macondo::simulate() {
 		stop();
 	clearMoves();
 	MacondoSimulateOptions options;
-	m_backend->simulate(options);
+	m_backend->simulate(options, m_movesFromKibitzer);
 }
 
 void Macondo::gameChanged(Quackle::Game *game) {
@@ -55,4 +55,11 @@ bool Macondo::useForSimulation() const {
 void Macondo::gotSimMoves(const Quackle::MoveList &moves) {
 	m_moves = moves;
 	m_anyUpdates = true;
+}
+
+void Macondo::positionChanged(const Quackle::GamePosition *position) {
+	if (!m_backend->isRunning()) {
+		// perhaps new moves were generated
+		m_movesFromKibitzer = position->moves();
+	}
 }

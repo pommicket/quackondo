@@ -64,9 +64,10 @@ MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &op
 	m_updateTimer->start();
 }
 
-void MacondoBackend::simulate(const MacondoSimulateOptions &) {
+void MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves) {
 	if (m_process) return;
 	printf("running macondo %s\n", m_execPath.c_str());
+	m_movesToLoad = moves;
 	m_process = new QProcess(this);
 	QStringList args;
 	m_process->start(m_execPath.c_str(), args);
@@ -234,8 +235,35 @@ void MacondoBackend::processStarted() {
 	case Command::None:
 		throw "process started with no command";
 	case Command::Simulate:
-		m_process->write("gen\nsim\n");
-		m_runningSimulation = true;
+		{
+			std::stringstream commands;
+			// add generated moves to Macondo
+			for (const Quackle::Move &move: m_movesToLoad) {
+				commands << "add ";
+				switch (move.action) {
+				case Quackle::Move::Action::Pass:
+					commands << "pass";
+					break;
+				case Quackle::Move::Action::Exchange:
+					commands << "exch ";
+					commands << QUACKLE_ALPHABET_PARAMETERS->userVisible(move.tiles());
+					break;
+				case Quackle::Move::Action::Place:
+				case Quackle::Move::Action::PlaceError:
+					commands << move.positionString();
+					commands << " ";
+					commands << QUACKLE_ALPHABET_PARAMETERS->userVisible(move.prettyTiles());
+					break;
+				default:
+					// ignore non-plays
+					break;
+				}
+				commands << "\n";
+			}
+			commands << "sim\n";
+			m_process->write(commands.str().c_str());
+			m_runningSimulation = true;
+		}
 		break;
 	case Command::Solve:
 		// TODO
@@ -270,12 +298,14 @@ void MacondoBackend::loadGCG() {
 }
 
 void MacondoBackend::killProcess() {
-	// This will give an annoying "destroyed while process running" message,
-	// but there's no way of avoiding it while keeping this method synchronous.
-	// (Destroying the process while it's running does what we want anyways,
-	//  i.e., kills it)
-	delete m_process;
-	m_process = nullptr;
+	if (m_process) {
+		m_process->kill();
+		// this is really unnecessary but prevents a
+		// "process destroyed while running" warning message
+		m_process->waitForFinished(100);
+		delete m_process;
+		m_process = nullptr;
+	}
 }
 
 void MacondoBackend::processFinished(int, QProcess::ExitStatus) {
@@ -290,9 +320,8 @@ void MacondoBackend::removeTempGCG() {
 }
 
 MacondoBackend::~MacondoBackend() {
-	if (m_process) {
-		m_process->kill();
-	}
+	killProcess();
+	removeTempGCG();
 }
 
 

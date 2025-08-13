@@ -2,12 +2,7 @@
 #define MACONDO_BACKEND_H
 
 #include <QProcess>
-
-namespace Quackle {
-	class Game;
-	class Move;
-	class MoveList;
-}
+#include "game.h"
 
 class QTimer;
 
@@ -25,7 +20,7 @@ class MacondoBackend: public QObject {
 Q_OBJECT
 public:
 	MacondoBackend(Quackle::Game *game, const MacondoInitOptions &);
-	void simulate(const MacondoSimulateOptions &);
+	void simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves);
 	~MacondoBackend();
 	std::string getSimResults();
 	inline bool isRunning() const { return m_command != Command::None; }
@@ -55,6 +50,7 @@ private:
 	Quackle::Game *m_game;
 	QByteArray m_processOutput;
 	Command m_command = Command::None;
+	Quackle::MoveList m_movesToLoad;
 };
 
 #endif

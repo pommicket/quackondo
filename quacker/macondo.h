@@ -29,6 +29,7 @@ public:
 public slots:
 	void simulate();
 	virtual void gameChanged(Quackle::Game *game);
+	virtual void positionChanged(const Quackle::GamePosition *position);
 private slots:
 	void gotSimMoves(const Quackle::MoveList &moves);
 private:
@@ -36,6 +37,7 @@ private:
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;
 	Quackle::MoveList m_moves;
+	Quackle::MoveList m_movesFromKibitzer;
 	int m_viewingPlyNumber = 0;
 	bool m_anyUpdates = false;
 	std::unique_ptr<MacondoInitOptions> initOptions;
