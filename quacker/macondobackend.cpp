@@ -1,5 +1,6 @@
 #include "macondobackend.h"
 #include "datamanager.h"
+#include "lexiconparameters.h"
 #include "quackleio/gcgio.h"
 #include "game.h"
 
@@ -260,6 +261,14 @@ void MacondoBackend::processStarted() {
 				}
 				commands << "\n";
 			}
+			
+			std::string lexicon = QUACKLE_LEXICON_PARAMETERS->lexiconName();
+			for (size_t i = 0; i < lexicon.size(); i++) {
+				if (lexicon[i] >= 'a' && lexicon[i] <= 'z') {
+					lexicon[i] += 'A' - 'a';
+				}
+			}
+			commands << "set lexicon " << lexicon << "\n";
 			commands << "sim\n";
 			m_process->write(commands.str().c_str());
 			m_runningSimulation = true;

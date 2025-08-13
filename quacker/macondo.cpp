@@ -1,7 +1,6 @@
 /*
 TODO:
 - configurable execPath
-- set Macondo lexicon based on game
 */
 
 #include "macondo.h"
