@@ -8,6 +8,7 @@
 #include <QProcess>
 #include <QTimer>
 #include <QTextStream>
+#include <QThread>
 #include <random>
 
 using std::string;
@@ -33,7 +34,24 @@ static bool is_ascii_space(char c) {
 	return strchr(" \r\n\f\t\v", c) != nullptr;
 }
 
-static vector<string> split(const string &s) {
+static vector<string> splitLines(const string &s) {
+	vector<string> lines;
+	size_t i = 0;
+	while (i < s.size()) {
+		size_t end = s.find('\n', i);
+		if (end == string::npos) end = s.size();
+		if (end == i) {
+			i++;
+			continue;
+		}
+		string line = s.substr(i, end - i);
+		lines.push_back(line);
+		i = end + 1;
+	}
+	return lines;
+}
+
+static vector<string> splitWords(const string &s) {
 	vector<string> words;
 	size_t i = 0;
 	while (i < s.size()) {
@@ -65,17 +83,27 @@ MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &op
 	m_updateTimer->start();
 }
 
-void MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves) {
+void MacondoBackend::startProcess() {
 	if (m_process) return;
-	printf("running macondo %s\n", m_execPath.c_str());
-	m_movesToLoad = moves;
 	m_process = new QProcess(this);
 	QStringList args;
 	m_process->start(m_execPath.c_str(), args);
 	connect(m_process, SIGNAL(started()), this, SLOT(processStarted()));
 	connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
+}
+
+void MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves) {
+	startProcess();
+	m_movesToLoad = moves;
 	m_command = Command::Simulate;
 }
+
+void MacondoBackend::solve(const MacondoSolveOptions &) {
+	startProcess();
+	bool isEndgame = m_game->currentPosition().unseenBag().size() <= 7;
+	m_command = isEndgame ? Command::SolveEndgame : Command::SolvePreEndgame;
+}
+
 
 static int parseScore(const string &scoreString) {
 	size_t scoreLen;
@@ -122,7 +150,7 @@ static double parseEquity(const string &equityString) {
 
 // parse move from Macondo sim
 static Quackle::Move extractSimMove(const string &play) {
-	vector<string> words = split(play);
+	vector<string> words = splitWords(play);
 	bool plays7 = words.size() == 5; // bingo/exchange 7 => no leave in output
 	if (!plays7 && words.size() != 6) {
 		throw "want 6 or 7 space-separated parts in play";
@@ -200,10 +228,36 @@ static Quackle::MoveList extractSimMoves(QByteArray &processOutput) {
 	return moves;
 }
 
+static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
+	QByteArray spreadDiffMarker("Best sequence has a spread difference (value) of ");
+	if (!processOutput.contains(spreadDiffMarker)) {
+		// delete all output except for the last line (which may be incomplete)
+		int lastLineIndex = processOutput.lastIndexOf('\n');
+		if (lastLineIndex >= 0) {
+			QByteArray lastLine(processOutput.data() + lastLineIndex + 1,
+				processOutput.size() - lastLineIndex - 1);
+			processOutput = lastLine;
+		}
+		return false;
+	}
+	QByteArray bestSeqMarker("Best sequence:\n");
+	int seqStart = processOutput.indexOf(bestSeqMarker);
+	if (seqStart < 0) return false;
+	seqStart += bestSeqMarker.length();
+	string sequenceStr(processOutput.data() + seqStart, processOutput.size() - seqStart);
+	vector<string> sequence = splitLines(sequenceStr);
+	printf("got sequence:\n");
+	for (const string &moveStr: sequence) {
+		printf("  | %s\n",moveStr.c_str());
+	}
+	processOutput.clear();
+	return false;
+}
+
 void MacondoBackend::timer() {
 	if (m_process) {
 		QByteArray data = m_process->readAllStandardError();
-		fprintf(stderr,"%s",data.constData());
+		fprintf(stderr,"%.*s",data.size(), data.constData());
 		data = m_process->readAllStandardOutput();
 		m_processOutput.append(data);
 		fflush(stdout);
@@ -224,8 +278,21 @@ void MacondoBackend::timer() {
 			}
 		}
 		break;
-	case Command::Solve:
+	case Command::SolvePreEndgame:
 		// TODO
+		break;
+	case Command::SolveEndgame:
+		{
+			if (m_processOutput.contains("Best sequence:")) {
+				// give Macondo a bit more time to write out the full sequence
+				QThread::msleep(60);
+				m_processOutput.append(m_process->readAllStandardOutput());
+			}
+			Quackle::Move move;
+			if (extractEndgameMove(m_processOutput, move)) {
+				std::cout << "Move: " << move << std::endl;
+			}
+		}
 		break;
 	}
 }
@@ -262,25 +329,27 @@ void MacondoBackend::processStarted() {
 				commands << "\n";
 			}
 			
-			std::string lexicon = QUACKLE_LEXICON_PARAMETERS->lexiconName();
-			for (size_t i = 0; i < lexicon.size(); i++) {
-				if (lexicon[i] >= 'a' && lexicon[i] <= 'z') {
-					lexicon[i] += 'A' - 'a';
-				}
-			}
-			commands << "set lexicon " << lexicon << "\n";
 			commands << "sim\n";
 			m_process->write(commands.str().c_str());
 			m_runningSimulation = true;
 		}
 		break;
-	case Command::Solve:
+	case Command::SolvePreEndgame:
 		// TODO
+		break;
+	case Command::SolveEndgame:
+		m_process->write("endgame -plies 20\n");
 		break;
 	}
 }
 
 void MacondoBackend::loadGCG() {
+	std::string lexicon = QUACKLE_LEXICON_PARAMETERS->lexiconName();
+	for (size_t i = 0; i < lexicon.size(); i++) {
+		if (lexicon[i] >= 'a' && lexicon[i] <= 'z') {
+			lexicon[i] += 'A' - 'a';
+		}
+	}
 	std::random_device randDev;
 	std::mt19937 rand(randDev());
 	std::uniform_int_distribution<int> distribution(0, 25);
@@ -301,7 +370,8 @@ void MacondoBackend::loadGCG() {
 		gcg.write(*m_game, fileStream);
 	}
 	std::stringstream commands;
-	commands << "load " << filename << "\n"
+	commands << "set lexicon " << lexicon << "\n"
+		<< "load " << filename << "\n"
 		<< "turn " << getPlyNumber(m_game->currentPosition()) << "\n";
 	m_process->write(commands.str().c_str());
 }

@@ -5,6 +5,7 @@
 #include "game.h"
 
 class QCheckBox;
+class QPushButton;
 class MacondoBackend;
 struct MacondoInitOptions;
 class MoveBox;
@@ -28,18 +29,21 @@ public:
 	}
 public slots:
 	void simulate();
-	virtual void gameChanged(Quackle::Game *game);
-	virtual void positionChanged(const Quackle::GamePosition *position);
+	void solve();
+	void gameChanged(Quackle::Game *game) override;
+	void positionChanged(const Quackle::GamePosition *position) override;
 private slots:
 	void gotSimMoves(const Quackle::MoveList &moves);
 private:
 	QCheckBox *m_useMacondo;
+	QPushButton *m_solve;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;
 	Quackle::MoveList m_moves;
 	Quackle::MoveList m_movesFromKibitzer;
 	int m_viewingPlyNumber = 0;
 	bool m_anyUpdates = false;
+	bool m_isSolving = false;
 	std::unique_ptr<MacondoInitOptions> initOptions;
 };
 
