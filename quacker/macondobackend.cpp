@@ -148,6 +148,24 @@ static double parseEquity(const string &equityString) {
 	return equity;
 }
 
+static Quackle::Move createPlaceMove(const string &placement, const string &prettyTiles) {
+	string dotDescription;
+	for (size_t i = 0; i < prettyTiles.size();) {
+		size_t j = prettyTiles.find("(", i);
+		if (j == string::npos) {
+			dotDescription += prettyTiles.substr(i);
+			break;
+		}
+		dotDescription += prettyTiles.substr(i, j) + ".";
+		i = prettyTiles.find(")", j);
+		if (i == string::npos) throw "mismatched parentheses";
+		i++;
+	}
+	auto move = Quackle::Move::createPlaceMove(placement, QUACKLE_ALPHABET_PARAMETERS->encode(dotDescription));
+	move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(prettyTiles));
+	return move;
+}
+
 // parse move from Macondo sim
 static Quackle::Move extractSimMove(const string &play) {
 	vector<string> words = splitWords(play);
@@ -179,24 +197,11 @@ static Quackle::Move extractSimMove(const string &play) {
 	} else {
 		// normal play
 		const string &placement = words[0];
-		const string &description = words[1];
+		const string &prettyTiles = words[1];
 		const string &scoreString = words[2 + !plays7];
 		const string &winString = words[3 + !plays7];
 		const string &equityString = words[4 + !plays7];
-		string dotDescription;
-		for (size_t i = 0; i < description.size();) {
-			size_t j = description.find("(", i);
-			if (j == string::npos) {
-				dotDescription += description.substr(i);
-				break;
-			}
-			dotDescription += description.substr(i, j) + ".";
-			i = description.find(")", j);
-			if (i == string::npos) throw "mismatched parentheses";
-			i++;
-		}
-		Quackle::Move move = Quackle::Move::createPlaceMove(placement, QUACKLE_ALPHABET_PARAMETERS->encode(dotDescription));
-		move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(description));
+		Quackle::Move move = createPlaceMove(placement, prettyTiles);
 		move.score = parseScore(scoreString);
 		move.win = parseWinRate(winString);
 		move.equity = parseEquity(equityString);
@@ -246,9 +251,36 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	seqStart += bestSeqMarker.length();
 	string sequenceStr(processOutput.data() + seqStart, processOutput.size() - seqStart);
 	vector<string> sequence = splitLines(sequenceStr);
-	printf("got sequence:\n");
-	for (const string &moveStr: sequence) {
-		printf("  | %s\n",moveStr.c_str());
+	// TODO: do something with rest of moves? or just extract first move?
+	const string &firstMove = sequence[0];
+	vector<string> moveWords = splitWords(firstMove);
+	if (moveWords.size() == 4) {
+		const string &placement = moveWords[1];
+		const string &prettyTiles = moveWords[2];
+		const string &scoreInParentheses = moveWords[3];
+		move = createPlaceMove(placement, prettyTiles);
+		int score = 0;
+		bool scoreIsValid = scoreInParentheses[0] == '(' && scoreInParentheses.back() == ')';
+		try {
+			size_t scoreLen = 0;
+			score = std::stoi(scoreInParentheses.substr(1), &scoreLen);
+			scoreIsValid = scoreLen == scoreInParentheses.length() - 2;
+		} catch (const std::invalid_argument &) {
+		} catch (const std::out_of_range &) {
+		}
+		if (scoreIsValid) {	
+			move.score = score;
+		} else {	
+			qWarning("bad move score syntax: %s", scoreInParentheses.c_str());
+		}
+		processOutput.clear();
+		return true;
+	} else if (moveWords.size() == 3 && moveWords[1] == "Pass" && moveWords[2] == "(0)") {
+		move = Quackle::Move::createPassMove();
+		processOutput.clear();
+		return true;
+	} else {
+		qWarning("bad move syntax: %s", firstMove.c_str());
 	}
 	processOutput.clear();
 	return false;
@@ -274,7 +306,7 @@ void MacondoBackend::timer() {
 			if (!moves.empty()) {
 				// at this point the GCG is definitely fully loaded
 				removeTempGCG();
-				emit gotSimMoves(moves);
+				emit gotMoves(moves);
 			}
 		}
 		break;
@@ -290,7 +322,10 @@ void MacondoBackend::timer() {
 			}
 			Quackle::Move move;
 			if (extractEndgameMove(m_processOutput, move)) {
-				std::cout << "Move: " << move << std::endl;
+				Quackle::MoveList list;
+				list.push_back(move);
+				printf("EMIT\n");
+				emit gotMoves(list);
 			}
 		}
 		break;

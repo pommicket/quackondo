@@ -116,7 +116,8 @@ public slots:
 	void htmlReport();
 	void graphicalReport();
 	void commitTopChoice();
-	void simulate(bool startSimulation);
+	void simulate(bool startSimulation = true);
+	inline void stopSimulation() { simulate(false); }
 	void simulateToggled(bool startSimulation);
 	void clearSimulationResults();
 

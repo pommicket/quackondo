@@ -27,20 +27,26 @@ public:
 		m_anyUpdates = false;
 		return any;
 	}
+	bool isRunning() const;
+signals:
+	void runningSolver();
+	void stoppedSolver();
 public slots:
 	void simulate();
 	void solve();
 	void gameChanged(Quackle::Game *game) override;
 	void positionChanged(const Quackle::GamePosition *position) override;
 private slots:
-	void gotSimMoves(const Quackle::MoveList &moves);
+	void gotMoves(const Quackle::MoveList &moves);
 private:
+	void updateSolveButton();
 	QCheckBox *m_useMacondo;
 	QPushButton *m_solve;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;
 	Quackle::MoveList m_moves;
 	Quackle::MoveList m_movesFromKibitzer;
+	int m_tilesUnseen = 93;
 	int m_viewingPlyNumber = 0;
 	bool m_anyUpdates = false;
 	bool m_isSolving = false;

@@ -31,7 +31,7 @@ public:
 	// stop current Macondo analysis
 	void stop();
 signals:
-	void gotSimMoves(const Quackle::MoveList &moves);
+	void gotMoves(const Quackle::MoveList &moves);
 private slots:
 	void processStarted();
 	void processFinished(int, QProcess::ExitStatus);

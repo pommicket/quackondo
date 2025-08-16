@@ -1052,15 +1052,19 @@ void TopLevel::ensureUpToDateSimulatorMoveList()
 void TopLevel::simulate(bool startSimulation)
 {
 	m_simulateAction->setChecked(startSimulation);
+	
+	if (m_macondo->isRunning() && !startSimulation) {
+		// stop Macondo
+		m_macondo->stop();
+		m_simulationTimer->stop();
+		return;
+	}
 
 	// it's not so useful to have sim control show/hide
 	// like this
 	//m_simulatorWidget->setVisible(startSimulation);
 	if (m_macondo->useForSimulation()) {
-		if (startSimulation)
-			m_macondo->simulate();
-		else
-			m_macondo->stop();
+		m_macondo->simulate();
 	}
 	if (startSimulation)
 	{
@@ -1075,6 +1079,15 @@ void TopLevel::simulateToggled(bool startSimulation)
 {
 	if (!m_game->hasPositions())
 		return;
+
+	if (startSimulation) {
+		// this function is called for the Macondo solver as well,
+		// so make sure user can stop solver through button in top bar.
+		m_simulateAction->setEnabled(true);
+	} else {
+		// restore previous enabledness* of Simulate action
+		m_simulateAction->setEnabled(!m_game->currentPosition().moves().empty());
+	}
 
 	simulate(startSimulation);
 
@@ -1254,8 +1267,9 @@ void TopLevel::incrementSimulation()
 	if (!m_simulateAction->isChecked())
 		return;
 	
-	if (m_macondo->useForSimulation()) {
+	if (m_macondo->isRunning()) {
 		if (m_macondo->anyUpdates()) {
+		printf("aaa update\n");
 			updateMoveViews();
 			updateSimViews();
 		}
@@ -2026,6 +2040,8 @@ void TopLevel::createWidgets()
 	m_macondo = new Macondo(m_game);
 	plugIntoMatrix(m_macondo);
 	plugIntoPositionMatrix(m_macondo);
+	connect(m_macondo, SIGNAL(runningSolver()), this, SLOT(simulate()));
+	connect(m_macondo, SIGNAL(stoppedSolver()), this, SLOT(stopSimulation()));
 
 	m_tabWidget = new QTabWidget;
 	m_tabWidget->addTab(m_history, tr("Histor&y"));

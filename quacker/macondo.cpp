@@ -21,7 +21,7 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	execPath += "/apps/macondo/macondo";
 	initOptions = std::make_unique<MacondoInitOptions>(execPath);
 	m_backend = new MacondoBackend(game, *initOptions);
-	connect(m_backend, SIGNAL(gotSimMoves(const Quackle::MoveList &)), this, SLOT(gotSimMoves(const Quackle::MoveList &)));
+	connect(m_backend, SIGNAL(gotMoves(const Quackle::MoveList &)), this, SLOT(gotMoves(const Quackle::MoveList &)));
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
 	QGridLayout *layout = new QGridLayout(this);
@@ -36,26 +36,35 @@ Macondo::~Macondo() {
 }
 
 void Macondo::simulate() {
-	if (m_backend->isRunning())
+	if (m_isSolving) {
+		// don't start a simulation if we're solving a (pre-)endgame
+		return;
+	}
+	if (isRunning())
 		stop();
 	clearMoves();
 	MacondoSimulateOptions options;
 	m_backend->simulate(options, m_movesFromKibitzer);
 }
 
+bool Macondo::isRunning() const {
+	return m_backend->isRunning();
+}
+
 void Macondo::solve() {
 	bool wasSolving = m_isSolving;
-	if (m_backend->isRunning())
+	if (isRunning())
 		stop();
 	clearMoves();
 	if (wasSolving) {
-		m_solve->setText(tr("Solve"));
+		emit stoppedSolver();
 	} else {
+		emit runningSolver();
 		MacondoSolveOptions options;
 		m_backend->solve(options);
-		m_solve->setText(tr("Stop"));
 		m_isSolving = true;
 	}
+	updateSolveButton();
 }
 
 void Macondo::gameChanged(Quackle::Game *game) {
@@ -68,27 +77,37 @@ void Macondo::stop() {
 	m_backend->stop();
 	m_anyUpdates = false;
 	m_isSolving = false;
+	updateSolveButton();
 }
 
 bool Macondo::useForSimulation() const {
 	return m_useMacondo->isChecked();
 }
 
-void Macondo::gotSimMoves(const Quackle::MoveList &moves) {
+void Macondo::gotMoves(const Quackle::MoveList &moves) {
+	printf("aaa moves\n");
 	m_moves = moves;
 	m_anyUpdates = true;
 }
 
 void Macondo::positionChanged(const Quackle::GamePosition *position) {
-	if (!m_backend->isRunning()) {
+	if (!isRunning()) {
 		// perhaps new moves were generated
 		m_movesFromKibitzer = position->moves();
-	} 
-	int tilesLeft = position->unseenBag().size();
-	if (!position->gameOver() && tilesLeft <= 7) {
+	}
+	m_tilesUnseen = position->gameOver() ? 0 : position->unseenBag().size();
+	updateSolveButton();
+}
+
+// update "Solve" button text and enabledness*
+void Macondo::updateSolveButton() {
+	if (isRunning()) {
+		m_solve->setText(tr("Stop"));
+		m_solve->setDisabled(false);
+	} else if (m_tilesUnseen > 0 && m_tilesUnseen <= 7) {
 		m_solve->setText(tr("Solve endgame"));
 		m_solve->setDisabled(false);
-	} else if (!position->gameOver() && tilesLeft <= 10) {
+	} else if (m_tilesUnseen > 7 && m_tilesUnseen <= 10) {
 		m_solve->setText(tr("Solve pre-endgame"));
 		m_solve->setDisabled(false);
 	} else {
