@@ -1269,7 +1269,6 @@ void TopLevel::incrementSimulation()
 	
 	if (m_macondo->isRunning()) {
 		if (m_macondo->anyUpdates()) {
-		printf("aaa update\n");
 			updateMoveViews();
 			updateSimViews();
 		}

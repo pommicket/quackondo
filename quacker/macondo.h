@@ -39,6 +39,7 @@ public slots:
 private slots:
 	void gotMoves(const Quackle::MoveList &moves);
 private:
+	void connectBackendSignals();
 	void updateSolveButton();
 	QCheckBox *m_useMacondo;
 	QPushButton *m_solve;

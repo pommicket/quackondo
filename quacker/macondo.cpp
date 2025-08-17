@@ -21,7 +21,7 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	execPath += "/apps/macondo/macondo";
 	initOptions = std::make_unique<MacondoInitOptions>(execPath);
 	m_backend = new MacondoBackend(game, *initOptions);
-	connect(m_backend, SIGNAL(gotMoves(const Quackle::MoveList &)), this, SLOT(gotMoves(const Quackle::MoveList &)));
+	connectBackendSignals();
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
 	QGridLayout *layout = new QGridLayout(this);
@@ -70,7 +70,12 @@ void Macondo::solve() {
 void Macondo::gameChanged(Quackle::Game *game) {
 	delete m_backend;
 	m_backend = new MacondoBackend(game, *initOptions);
+	connectBackendSignals();
 	m_game = game;
+}
+
+void Macondo::connectBackendSignals() {
+	connect(m_backend, SIGNAL(gotMoves(const Quackle::MoveList &)), this, SLOT(gotMoves(const Quackle::MoveList &)));
 }
 
 void Macondo::stop() {
@@ -85,9 +90,10 @@ bool Macondo::useForSimulation() const {
 }
 
 void Macondo::gotMoves(const Quackle::MoveList &moves) {
-	printf("aaa moves\n");
 	m_moves = moves;
 	m_anyUpdates = true;
+	if (moves.size() == 1)
+		emit setCandidateMove(&moves[0]);
 }
 
 void Macondo::positionChanged(const Quackle::GamePosition *position) {

@@ -74,7 +74,7 @@ static string trimLeft(const string &s) {
 }
 
 
-MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &options) {
+MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &options): QObject() {
 	m_execPath = options.execPath;
 	m_game = game;
 	m_updateTimer = new QTimer(this);
@@ -319,12 +319,12 @@ void MacondoBackend::timer() {
 				// give Macondo a bit more time to write out the full sequence
 				QThread::msleep(60);
 				m_processOutput.append(m_process->readAllStandardOutput());
+				//printf("%.*s\n",m_processOutput.size(),m_processOutput.data());
 			}
 			Quackle::Move move;
 			if (extractEndgameMove(m_processOutput, move)) {
 				Quackle::MoveList list;
 				list.push_back(move);
-				printf("EMIT\n");
 				emit gotMoves(list);
 			}
 		}
