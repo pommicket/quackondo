@@ -14,6 +14,14 @@
 using std::string;
 using std::vector;
 
+// These "markers" are special parts of Macondo's standard output which we're looking for.
+// We can change these whenever Macondo's output format changes.
+static const QByteArray simPlaysStartMarker("Play                Leave         Score    Win%            Equity");
+static const QByteArray simPlaysEndMarker("Iterations:");
+static const QByteArray endgameSpreadDiffMarker("Best sequence has a spread difference (value) of ");
+static const QByteArray endgameFinalSpreadMarker("Final spread after seq: ");
+static const QByteArray endgameBestSeqMarker("Best sequence:\n");
+
 static int getPlyNumber(const Quackle::GamePosition &position) {
 	int playerIndex = 0, numPlayers = position.players().size();
 	for (const Quackle::Player &player: position.players()) {
@@ -104,18 +112,27 @@ void MacondoBackend::solve(const MacondoSolveOptions &) {
 	m_command = isEndgame ? Command::SolveEndgame : Command::SolvePreEndgame;
 }
 
+static bool parseInt(const string &s, int &value, size_t *len) {
+	try {
+		value = std::stoi(s, len);
+		return true;
+	} catch (const std::invalid_argument &) {
+		return false;
+	} catch (const std::out_of_range &) {
+		return false;
+	}
+	
+}
+
 
 static int parseScore(const string &scoreString) {
 	size_t scoreLen;
 	int score = 0;
-	try {
-		score = std::stoi(scoreString, &scoreLen);
+	if (parseInt(scoreString, score, &scoreLen)) {
 		if (scoreLen != scoreString.length()) {
 			qWarning("move score of '%s' is invalid", scoreString.c_str());
 			score = 0;
 		}
-	} catch (const std::invalid_argument &) {
-	} catch (const std::out_of_range &) {
 	}
 	return score;
 }
@@ -213,11 +230,9 @@ static Quackle::Move extractSimMove(const string &play) {
 // extract Quackle::Move from Macondo's sim output
 static Quackle::MoveList extractSimMoves(QByteArray &processOutput) {
 	Quackle::MoveList moves;
-	QByteArray playsStartIdentifier("Play                Leave         Score    Win%            Equity");
-	QByteArray playsEndIdentifier("Iterations:");
-	int start = processOutput.indexOf(playsStartIdentifier) + playsStartIdentifier.length();
+	int start = processOutput.indexOf(simPlaysStartMarker) + simPlaysStartMarker.length();
 	if (start < 0) return moves;
-	int end = processOutput.indexOf(playsEndIdentifier, start);
+	int end = processOutput.indexOf(simPlaysEndMarker, start);
 	if (end < 0) return moves;
 	string plays(processOutput.constData() + start, end - start);
 	processOutput.remove(0, end);
@@ -234,8 +249,8 @@ static Quackle::MoveList extractSimMoves(QByteArray &processOutput) {
 }
 
 static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
-	QByteArray spreadDiffMarker("Best sequence has a spread difference (value) of ");
-	if (!processOutput.contains(spreadDiffMarker)) {
+	int spreadDiffMarkerIdx = processOutput.indexOf(endgameSpreadDiffMarker);
+	if (spreadDiffMarkerIdx < 0) {
 		// delete all output except for the last line (which may be incomplete)
 		int lastLineIndex = processOutput.lastIndexOf('\n');
 		if (lastLineIndex >= 0) {
@@ -245,15 +260,32 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 		}
 		return false;
 	}
-	QByteArray bestSeqMarker("Best sequence:\n");
-	int seqStart = processOutput.indexOf(bestSeqMarker);
+	int spreadDiffStart = spreadDiffMarkerIdx + endgameSpreadDiffMarker.length();
+	int spreadDiffEnd = processOutput.indexOf("\n", spreadDiffStart);
+	if (spreadDiffEnd < 0) return false;
+	int spreadDiff = -999;
+	string spreadDiffStr(processOutput.data() + spreadDiffStart, spreadDiffEnd - spreadDiffStart);
+	if (!parseInt(spreadDiffStr, spreadDiff, nullptr)) {
+		qWarning("bad sequence spread: %s", spreadDiffStr.c_str());
+	}
+	int finalSpread = INT_MIN;
+	int finalSpreadMarkerIdx = processOutput.indexOf(endgameFinalSpreadMarker);
+	if (finalSpreadMarkerIdx < 0) return false;
+	int finalSpreadStart = finalSpreadMarkerIdx + endgameFinalSpreadMarker.length();
+	int finalSpreadEnd = processOutput.indexOf("\n", finalSpreadStart);
+	std::string finalSpreadStr(processOutput.data() + finalSpreadStart, finalSpreadEnd - finalSpreadStart);
+	if (!parseInt(finalSpreadStr, finalSpread, nullptr)) {
+		qWarning("bad final spread: %s", finalSpreadStr.c_str());
+	}
+	int seqStart = processOutput.indexOf(endgameBestSeqMarker);
 	if (seqStart < 0) return false;
-	seqStart += bestSeqMarker.length();
+	seqStart += endgameBestSeqMarker.length();
 	string sequenceStr(processOutput.data() + seqStart, processOutput.size() - seqStart);
 	vector<string> sequence = splitLines(sequenceStr);
 	// TODO: do something with rest of moves? or just extract first move?
 	const string &firstMove = sequence[0];
 	vector<string> moveWords = splitWords(firstMove);
+	bool ok = false;
 	if (moveWords.size() == 4) {
 		const string &placement = moveWords[1];
 		const string &prettyTiles = moveWords[2];
@@ -261,29 +293,30 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 		move = createPlaceMove(placement, prettyTiles);
 		int score = 0;
 		bool scoreIsValid = scoreInParentheses[0] == '(' && scoreInParentheses.back() == ')';
-		try {
-			size_t scoreLen = 0;
-			score = std::stoi(scoreInParentheses.substr(1), &scoreLen);
+		size_t scoreLen = 0;
+		if (parseInt(scoreInParentheses.substr(1), score, &scoreLen)) {
 			scoreIsValid = scoreLen == scoreInParentheses.length() - 2;
-		} catch (const std::invalid_argument &) {
-		} catch (const std::out_of_range &) {
 		}
 		if (scoreIsValid) {	
 			move.score = score;
 		} else {	
 			qWarning("bad move score syntax: %s", scoreInParentheses.c_str());
 		}
-		processOutput.clear();
-		return true;
+		ok = true;
 	} else if (moveWords.size() == 3 && moveWords[1] == "Pass" && moveWords[2] == "(0)") {
 		move = Quackle::Move::createPassMove();
-		processOutput.clear();
-		return true;
+		ok = true;
 	} else {
 		qWarning("bad move syntax: %s", firstMove.c_str());
 	}
 	processOutput.clear();
-	return false;
+	if (ok) {
+		move.equity = spreadDiff;
+		move.win = finalSpread < 0 ? 0.0 // loss/something went wrong
+			: finalSpread == 0 ? 0.5 // draw
+			: 1.0; // win
+	}
+	return ok;
 }
 
 void MacondoBackend::timer() {
@@ -315,12 +348,13 @@ void MacondoBackend::timer() {
 		break;
 	case Command::SolveEndgame:
 		{
-			if (m_processOutput.contains("Best sequence:")) {
+			if (m_processOutput.contains(endgameBestSeqMarker)) {
+				removeTempGCG();
 				// give Macondo a bit more time to write out the full sequence
 				QThread::msleep(60);
 				m_processOutput.append(m_process->readAllStandardOutput());
-				//printf("%.*s\n",m_processOutput.size(),m_processOutput.data());
 			}
+			
 			Quackle::Move move;
 			if (extractEndgameMove(m_processOutput, move)) {
 				Quackle::MoveList list;
