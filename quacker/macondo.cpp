@@ -92,8 +92,9 @@ bool Macondo::useForSimulation() const {
 void Macondo::gotMoves(const Quackle::MoveList &moves) {
 	m_moves = moves;
 	m_anyUpdates = true;
-	if (moves.size() == 1)
+	if (m_isSolving && moves.size() > 0) {
 		emit setCandidateMove(&moves[0]);
+	}
 }
 
 void Macondo::positionChanged(const Quackle::GamePosition *position) {

@@ -1271,6 +1271,11 @@ void TopLevel::incrementSimulation()
 		if (m_macondo->anyUpdates()) {
 			updateMoveViews();
 			updateSimViews();
+			if (m_macondo->isSolving()) {
+				// stop after solver gives us moves
+				simulate(false);
+				return;
+			}
 		}
 		// check again in 100ms
 		m_simulationTimer->start(100);
