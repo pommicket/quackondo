@@ -28,7 +28,7 @@ public:
 		return any;
 	}
 	bool isRunning() const;
-	bool isSolving() const { return m_isSolving; }
+	inline bool isSolving() const { return m_isSolving; }
 signals:
 	void runningSolver();
 	void stoppedSolver();

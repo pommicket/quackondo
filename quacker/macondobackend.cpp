@@ -14,13 +14,17 @@
 using std::string;
 using std::vector;
 
-// These "markers" are special parts of Macondo's standard output which we're looking for.
+// These "markers" are special parts of Macondo's standard output/error which we're looking for.
 // We can change these whenever Macondo's output format changes.
 static const QByteArray simPlaysStartMarker("Play                Leave         Score    Win%            Equity");
 static const QByteArray simPlaysEndMarker("Iterations:");
 static const QByteArray endgameSpreadDiffMarker("Best sequence has a spread difference (value) of ");
 static const QByteArray endgameFinalSpreadMarker("Final spread after seq: ");
 static const QByteArray endgameBestSeqMarker("Best sequence:\n");
+// marks current ply depth during endgame solving
+static const QByteArray endgamePlyMarker("\"ply\":");
+// marks current best sequence during endgame solving
+static const QByteArray endgameCurrBestMarker("\"pv\":\"");
 
 static int getPlyNumber(const Quackle::GamePosition &position) {
 	int playerIndex = 0, numPlayers = position.players().size();
@@ -320,10 +324,14 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 }
 
 void MacondoBackend::timer() {
+	bool anyNewOutput = false;
 	if (m_process) {
 		QByteArray data = m_process->readAllStandardError();
+		anyNewOutput |= data.size() != 0;
 		fprintf(stderr,"%.*s",data.size(), data.constData());
+		m_processStderr.append(data);
 		data = m_process->readAllStandardOutput();
+		anyNewOutput |= data.size() != 0;
 		m_processOutput.append(data);
 		fflush(stdout);
 	}
@@ -347,20 +355,56 @@ void MacondoBackend::timer() {
 		// TODO
 		break;
 	case Command::SolveEndgame:
-		{
-			if (m_processOutput.contains(endgameBestSeqMarker)) {
-				removeTempGCG();
-				// give Macondo a bit more time to write out the full sequence
-				QThread::msleep(60);
-				m_processOutput.append(m_process->readAllStandardOutput());
-			}
-			
+		if (m_processOutput.contains(endgameBestSeqMarker)) {
+			removeTempGCG();
+			// give Macondo a bit more time to write out the full sequence
+			QThread::msleep(60);
+			m_processOutput.append(m_process->readAllStandardOutput());
 			Quackle::Move move;
 			if (extractEndgameMove(m_processOutput, move)) {
 				Quackle::MoveList list;
 				list.push_back(move);
 				emit gotMoves(list);
 			}
+		} else if (anyNewOutput) {
+			// update status
+			int lastNewline = m_processStderr.lastIndexOf('\n');
+			if (lastNewline == -1) return;
+			// extract current ply number from stderr
+			int plyMarkerIdx = m_processStderr.lastIndexOf(endgamePlyMarker, lastNewline);
+			int ply = 0;
+			if (plyMarkerIdx != -1) {
+				int plyStart = plyMarkerIdx + endgamePlyMarker.length();
+				std::string plyStr(m_processStderr.constData() + plyStart,
+					std::min(m_processStderr.length() - plyStart, 30));
+				parseInt(plyStr, ply, nullptr);
+			}
+			// extract current best sequence
+			int currBestMarkerIdx = m_processStderr.lastIndexOf(endgameCurrBestMarker, lastNewline);
+			std::string currBest;
+			if (currBestMarkerIdx != -1) {
+				int currBestStart = currBestMarkerIdx + endgameCurrBestMarker.length();
+				int currBestEnd = m_processStderr.indexOf('"', currBestStart);
+				if (currBestEnd != -1) {
+					currBest = std::string(m_processStderr.constData() + currBestStart,
+						currBestEnd - currBestStart);
+				}
+			}
+			const char *dots = m_solveStatusDots == 3 ? "..."
+				: m_solveStatusDots == 4 ? "...."
+				: ".....";
+			m_solveStatusDots += 1;
+			if (m_solveStatusDots == 6) m_solveStatusDots = 3;
+			std::stringstream status;
+			status << "Solving endgame";
+			if (ply) {
+				status << " (" << ply << " plies deep)";
+			}
+			if (!currBest.empty()) {
+				status << ", current best: " << currBest;
+			}
+			status << dots;
+			emit statusMessage(QString::fromStdString(status.str()));
 		}
 		break;
 	}
@@ -478,4 +522,6 @@ void MacondoBackend::stop() {
 	removeTempGCG();
 	m_runningSimulation = false;
 	m_command = Command::None;
+	m_processOutput.clear();
+	m_processStderr.clear();
 }

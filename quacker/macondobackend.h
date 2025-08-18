@@ -32,6 +32,7 @@ public:
 	void stop();
 signals:
 	void gotMoves(const Quackle::MoveList &moves);
+	void statusMessage(const QString &message);
 private slots:
 	void processStarted();
 	void processFinished(int, QProcess::ExitStatus);
@@ -51,10 +52,12 @@ private:
 	std::string m_tempGCG;
 	QProcess *m_process = nullptr;
 	QTimer *m_updateTimer = nullptr;
+	int m_solveStatusDots = 3;
 	// is simulation being run right now? (i.e. has process been started & game been loaded?)
 	bool m_runningSimulation = false;
 	Quackle::Game *m_game;
 	QByteArray m_processOutput;
+	QByteArray m_processStderr;
 	Command m_command = Command::None;
 	Quackle::MoveList m_movesToLoad;
 };

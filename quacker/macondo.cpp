@@ -76,6 +76,7 @@ void Macondo::gameChanged(Quackle::Game *game) {
 
 void Macondo::connectBackendSignals() {
 	connect(m_backend, SIGNAL(gotMoves(const Quackle::MoveList &)), this, SLOT(gotMoves(const Quackle::MoveList &)));
+	connect(m_backend, SIGNAL(statusMessage(const QString &)), this, SIGNAL(statusMessage(const QString &)));
 }
 
 void Macondo::stop() {
