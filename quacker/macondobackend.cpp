@@ -296,7 +296,6 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	seqStart += endgameBestSeqMarker.length();
 	string sequenceStr(processOutput.data() + seqStart, processOutput.size() - seqStart);
 	vector<string> sequence = splitLines(sequenceStr);
-	// TODO: do something with rest of moves? or just extract first move?
 	const string &firstMove = sequence[0];
 	vector<string> moveWords = splitWords(firstMove);
 	bool ok = false;
@@ -311,9 +310,9 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 		if (parseInt(scoreInParentheses.substr(1), score, &scoreLen)) {
 			scoreIsValid = scoreLen == scoreInParentheses.length() - 2;
 		}
-		if (scoreIsValid) {	
+		if (scoreIsValid) {
 			move.score = score;
-		} else {	
+		} else {
 			qWarning("bad move score syntax: %s", scoreInParentheses.c_str());
 		}
 		ok = true;
@@ -325,7 +324,14 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	}
 	processOutput.clear();
 	if (ok) {
+		std::stringstream remainingSequence;
+		// show remainder of sequence as comment on Move
+		for (size_t i = 1; i < sequence.size(); i++) {
+			if (i > 1) remainingSequence << " ";
+			remainingSequence << sequence[i];
+		}
 		move.equity = spreadDiff;
+		move.comment = remainingSequence.str();
 		move.win = finalSpread < 0 ? 0.0 // loss/something went wrong
 			: finalSpread == 0 ? 0.5 // draw
 			: 1.0; // win
@@ -363,7 +369,7 @@ static Quackle::Move extractPreEndgameMove(const string &moveStr) {
 		move.equity = parseEquity(words[2]);
 	else
 		move.equity = -999 + 0.01 * move.win; // ensure moves are still sorted by win%
-	move.outcomes = outcomes;
+	move.comment = outcomes;
 	return move;
 }
 
@@ -441,7 +447,7 @@ void MacondoBackend::timer() {
 			}
 			break;
 		}
-		if (int i; (i = m_processStderr.lastIndexOf(preEndgameStartingMarker)) != -1
+		if (int i = m_processStderr.lastIndexOf(preEndgameStartingMarker); i != -1
 			&& m_processStderr.indexOf('\n', i) != -1) {
 			removeTempGCG();
 			// extract # of plays Macondo will analyze
@@ -502,6 +508,7 @@ void MacondoBackend::timer() {
 			int currBestMarkerIdx = m_processStderr.lastIndexOf(endgameCurrBestMarker, lastNewline);
 			std::string currBest;
 			if (currBestMarkerIdx != -1) {
+				removeTempGCG();
 				int currBestStart = currBestMarkerIdx + endgameCurrBestMarker.length();
 				int currBestEnd = m_processStderr.indexOf('"', currBestStart);
 				if (currBestEnd != -1) {

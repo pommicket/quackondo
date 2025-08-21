@@ -1,9 +1,12 @@
 /*
 TODO:
+- pre-endgame solve w generated moves only
 - configurable execPath
+- save options
 - detect Macondo crashing?
 - stop Macondo solve when game position changes
 - configurable max plies
+- other peg/endgame options
 */
 
 #include "macondo.h"
