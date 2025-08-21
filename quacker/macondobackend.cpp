@@ -115,10 +115,14 @@ void MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quack
 	m_command = Command::Simulate;
 }
 
-void MacondoBackend::solve(const MacondoSolveOptions &) {
+void MacondoBackend::solveEndgame(const MacondoEndgameOptions &) {
 	startProcess();
-	bool isEndgame = m_game->currentPosition().unseenBag().size() <= 7;
-	m_command = isEndgame ? Command::SolveEndgame : Command::SolvePreEndgame;
+	m_command = Command::SolveEndgame;
+}
+
+void MacondoBackend::solvePreEndgame(const MacondoPreEndgameOptions &) {
+	startProcess();
+	m_command = Command::SolvePreEndgame;
 	m_preEndgamePlaysToAnalyze = 0;
 }
 
@@ -424,9 +428,7 @@ void MacondoBackend::timer() {
 		break;
 	case Command::SolvePreEndgame:
 		if (m_processOutput.contains(preEndgamePlaysEndMarker)) {
-			// TODO
 			removeTempGCG();
-			emit statusMessage("Finished solving pre-endgame.");
 			Quackle::MoveList moves = extractPreEndgameMoves(m_processOutput);
 			if (!moves.empty()) {
 				Quackle::GamePosition &position = m_game->currentPosition();
@@ -636,4 +638,5 @@ void MacondoBackend::stop() {
 	m_command = Command::None;
 	m_processOutput.clear();
 	m_processStderr.clear();
+	emit statusMessage("");
 }

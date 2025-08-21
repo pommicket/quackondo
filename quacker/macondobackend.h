@@ -15,8 +15,11 @@ struct MacondoInitOptions {
 struct MacondoSimulateOptions {
 	inline MacondoSimulateOptions() {}
 };
-struct MacondoSolveOptions {
-	inline MacondoSolveOptions() {}
+struct MacondoEndgameOptions {
+	inline MacondoEndgameOptions() {}
+};
+struct MacondoPreEndgameOptions {
+	inline MacondoPreEndgameOptions() {}
 };
 
 class MacondoBackend: public QObject {
@@ -25,7 +28,8 @@ public:
 	MacondoBackend(Quackle::Game *game, const MacondoInitOptions &);
 	~MacondoBackend();
 	void simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves);
-	void solve(const MacondoSolveOptions &options);
+	void solveEndgame(const MacondoEndgameOptions &options);
+	void solvePreEndgame(const MacondoPreEndgameOptions &options);
 	std::string getSimResults();
 	inline bool isRunning() const { return m_command != Command::None; }
 	// stop current Macondo analysis

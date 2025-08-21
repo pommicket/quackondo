@@ -60,8 +60,13 @@ void Macondo::solve() {
 		emit stoppedSolver();
 	} else {
 		emit runningSolver();
-		MacondoSolveOptions options;
-		m_backend->solve(options);
+		if (m_tilesUnseen > 7) {
+			MacondoPreEndgameOptions options;
+			m_backend->solvePreEndgame(options);
+		} else {
+			MacondoEndgameOptions options;
+			m_backend->solveEndgame(options);
+		}
 		m_isSolving = true;
 	}
 	updateSolveButton();
