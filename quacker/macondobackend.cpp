@@ -26,6 +26,11 @@ static const QByteArray endgamePlyMarker("\"ply\":");
 // marks current best sequence during endgame solving
 static const QByteArray endgameCurrBestMarker("\"pv\":\"");
 
+static const QByteArray preEndgameStartingMarker("\"message\":\"starting to process ");
+static const QByteArray preEndgameProgressMarker("\"message\":\"handled ");
+static const QByteArray preEndgamePlaysStartMarker("Play                Wins    %Win    Spread   Outcomes");
+static const QByteArray preEndgamePlaysEndMarker("❌ marks plays cut off early");
+
 static int getPlyNumber(const Quackle::GamePosition &position) {
 	int playerIndex = 0, numPlayers = position.players().size();
 	for (const Quackle::Player &player: position.players()) {
@@ -114,6 +119,7 @@ void MacondoBackend::solve(const MacondoSolveOptions &) {
 	startProcess();
 	bool isEndgame = m_game->currentPosition().unseenBag().size() <= 7;
 	m_command = isEndgame ? Command::SolveEndgame : Command::SolvePreEndgame;
+	m_preEndgamePlaysToAnalyze = 0;
 }
 
 static bool parseInt(const string &s, int &value, size_t *len) {
@@ -323,6 +329,69 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	return ok;
 }
 
+static Quackle::Move extractPreEndgameMove(const string &moveStr) {
+	size_t outcomesStart = std::min(moveStr.find("👍"), std::min(moveStr.find("👎"), moveStr.find("🤝")));
+	if (outcomesStart == string::npos) {
+		throw "expected 👍/👎/🤝 to mark start of outcomes";
+	}
+	string outcomes = moveStr.substr(outcomesStart);
+	vector<string> words = splitWords(moveStr.substr(0, outcomesStart));
+	if (words.size() < 3) throw "expected at least 3 space-separated parts before outcome";
+	Quackle::Move move;
+	if (words[0] == "(Pass)") {
+		words.erase(words.begin());
+		move = Quackle::Move::createPassMove();
+	} else if (words[0] == "(exch") { // probably Macondo will never be able to solve 7-in-the-bag but who knows
+		string tiles = words[1];
+		if (tiles[tiles.length() - 1] != ')')
+			throw "expected ) following (exch";
+		tiles.pop_back();
+		move = Quackle::Move::createExchangeMove(QUACKLE_ALPHABET_PARAMETERS->encode(tiles), false);
+		words.erase(words.begin(), words.begin() + 2);
+	} else {
+		move = createPlaceMove(words[0], words[1]);
+		words.erase(words.begin(), words.begin() + 2);
+	}
+	if (words.size() < 2) throw "missing wins/win%";
+	move.win = parseWinRate(words[1]);
+	// looks like equity is only computed for plays that are in the lead and tied
+	if (words.size() >= 3)
+		move.equity = parseEquity(words[2]);
+	else
+		move.equity = -999 + 0.01 * move.win; // ensure moves are still sorted by win%
+	return move;
+}
+
+static Quackle::MoveList extractPreEndgameMoves(const QByteArray &processOutput) {
+	Quackle::MoveList list;
+	int startMarkerIdx = processOutput.indexOf(preEndgamePlaysStartMarker);
+	if (startMarkerIdx == -1) return list;
+	int startIdx = processOutput.indexOf('\n', startMarkerIdx + preEndgamePlaysStartMarker.length()) + 1;
+	if (startIdx == 0) return list;
+	int endIdx = processOutput.indexOf(preEndgamePlaysEndMarker, startIdx);
+	if (endIdx == -1) return list;
+	vector<string> moves = splitLines(string(processOutput.constData() + startIdx, endIdx - startIdx));
+	for (const string &moveStr: moves) {
+		try {
+			list.push_back(extractPreEndgameMove(moveStr));
+		} catch (const char *err) {
+			fprintf(stderr, "WARNING: bad syntax in pre-endgame move string (%s): %s",
+				err, moveStr.c_str());
+		}
+	}
+	Quackle::MoveList::sort(list);
+	return list;
+}
+
+const char *MacondoBackend::updateDots(bool anythingNew) {
+	const char *dots = m_solveStatusDots == 3 ? "..."
+		: m_solveStatusDots == 4 ? "...."
+		: ".....";
+	m_solveStatusDots += anythingNew;
+	if (m_solveStatusDots == 6) m_solveStatusDots = 3;
+	return dots;
+}
+
 void MacondoBackend::timer() {
 	bool anyNewOutput = false;
 	if (m_process) {
@@ -335,6 +404,7 @@ void MacondoBackend::timer() {
 		m_processOutput.append(data);
 		fflush(stdout);
 	}
+	const char *dots = updateDots(anyNewOutput);
 	switch (m_command) {
 	case Command::None:
 		break;
@@ -352,7 +422,49 @@ void MacondoBackend::timer() {
 		}
 		break;
 	case Command::SolvePreEndgame:
-		// TODO
+		if (m_processOutput.contains(preEndgamePlaysEndMarker)) {
+			// TODO
+			removeTempGCG();
+			emit statusMessage("Finished solving pre-endgame.");
+			Quackle::MoveList moves = extractPreEndgameMoves(m_processOutput);
+			if (!moves.empty()) {
+				// at this point the GCG is definitely fully loaded
+				removeTempGCG();
+				emit gotMoves(moves);
+			}
+			break;
+		}
+		if (int i; (i = m_processStderr.lastIndexOf(preEndgameStartingMarker)) != -1
+			&& m_processStderr.indexOf('\n', i) != -1) {
+			removeTempGCG();
+			// extract # of plays Macondo will analyze
+			i += preEndgameStartingMarker.length();
+			m_processStderr = QByteArray(m_processStderr.constData() + i, m_processStderr.size() - i);
+			string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
+			int numPlays = 0;
+			parseInt(numPlaysStr, numPlays, nullptr);
+			m_preEndgamePlaysToAnalyze = numPlays;
+			std::stringstream message;
+			message << "Analyzed 0/" << m_preEndgamePlaysToAnalyze << " plays" << dots;
+			emit statusMessage(QString::fromStdString(message.str()));
+		}
+		if (m_preEndgamePlaysToAnalyze) {
+			int i = m_processStderr.lastIndexOf(preEndgameProgressMarker);
+			// extract # of plays Macondo has analyzed so far
+			if (i != -1 && m_processStderr.indexOf('\n', i) != -1) {
+				i += preEndgameProgressMarker.length();
+				m_processStderr = QByteArray(m_processStderr.constData() + i, m_processStderr.size() - i);
+				string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
+				int numPlays = 0;
+				parseInt(numPlaysStr, numPlays, nullptr);
+				std::stringstream message;
+				message << "Analyzed " << numPlays << "/" << m_preEndgamePlaysToAnalyze << " plays" << dots;
+				emit statusMessage(QString::fromStdString(message.str()));
+			}
+		} else {
+			// no progress yet
+			emit statusMessage(QString("Solving pre-endgame") + dots);
+		}
 		break;
 	case Command::SolveEndgame:
 		if (m_processOutput.contains(endgameBestSeqMarker)) {
@@ -390,11 +502,6 @@ void MacondoBackend::timer() {
 						currBestEnd - currBestStart);
 				}
 			}
-			const char *dots = m_solveStatusDots == 3 ? "..."
-				: m_solveStatusDots == 4 ? "...."
-				: ".....";
-			m_solveStatusDots += 1;
-			if (m_solveStatusDots == 6) m_solveStatusDots = 3;
 			std::stringstream status;
 			status << "Solving endgame";
 			if (ply) {
@@ -448,7 +555,7 @@ void MacondoBackend::processStarted() {
 		}
 		break;
 	case Command::SolvePreEndgame:
-		// TODO
+		m_process->write("peg -disable-id true -early-cutoff true\n");
 		break;
 	case Command::SolveEndgame:
 		m_process->write("endgame -plies 20\n");

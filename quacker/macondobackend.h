@@ -48,11 +48,13 @@ private:
 	void loadGCG();
 	void killProcess();
 	void removeTempGCG();
+	const char *updateDots(bool);
 	std::string m_execPath;
 	std::string m_tempGCG;
 	QProcess *m_process = nullptr;
 	QTimer *m_updateTimer = nullptr;
 	int m_solveStatusDots = 3;
+	int m_preEndgamePlaysToAnalyze = 0;
 	// is simulation being run right now? (i.e. has process been started & game been loaded?)
 	bool m_runningSimulation = false;
 	Quackle::Game *m_game;
