@@ -59,6 +59,9 @@ public:
 	int startrow = 0;
 	int startcol = 0;
 
+	// Human-readable outcomes for pre-endgame solving
+	std::string outcomes;
+
 	// returns whether this is not a Nonmove
 	bool isAMove() const;
 

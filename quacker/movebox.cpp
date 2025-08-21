@@ -262,7 +262,12 @@ QTreeWidgetItem *MoveBox::createItem(const Quackle::Move &move)
 	item->setText(LeaveColumn, QuackleIO::Util::letterStringToQString(QuackleIO::Util::arrangeLettersForUser(m_rack - move)));
 	item->setText(WinPercentageColumn, formatWinPercentage(move.win));
 	item->setText(EquityColumn, formatValuation(move.equity));
-
+	if (!move.outcomes.empty()) {
+		// show Macondo pre-endgame outcomes when item is hovered over
+		for (int column = 0; column < m_treeWidget->columnCount(); column++) {
+			item->setToolTip(column, QString::fromStdString(move.outcomes));
+		}
+	}
 	return item;
 }
 

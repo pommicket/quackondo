@@ -359,6 +359,7 @@ static Quackle::Move extractPreEndgameMove(const string &moveStr) {
 		move.equity = parseEquity(words[2]);
 	else
 		move.equity = -999 + 0.01 * move.win; // ensure moves are still sorted by win%
+	move.outcomes = outcomes;
 	return move;
 }
 
@@ -428,6 +429,10 @@ void MacondoBackend::timer() {
 			emit statusMessage("Finished solving pre-endgame.");
 			Quackle::MoveList moves = extractPreEndgameMoves(m_processOutput);
 			if (!moves.empty()) {
+				Quackle::GamePosition &position = m_game->currentPosition();
+				for (Quackle::Move &move: moves) {
+					position.scoreMove(move);
+				}
 				// at this point the GCG is definitely fully loaded
 				removeTempGCG();
 				emit gotMoves(moves);
