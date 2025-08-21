@@ -6,9 +6,11 @@
 
 class QCheckBox;
 class QPushButton;
+class QLineEdit;
 class MacondoBackend;
 struct MacondoInitOptions;
 class MoveBox;
+
 class Macondo : public View {
 Q_OBJECT
 public:
@@ -39,11 +41,13 @@ public slots:
 	void positionChanged(const Quackle::GamePosition *position) override;
 private slots:
 	void gotMoves(const Quackle::MoveList &moves);
+	void newExecPath();
 private:
 	void connectBackendSignals();
 	void updateSolveButton();
 	QCheckBox *m_useMacondo;
 	QCheckBox *m_generatedMovesOnly;
+	QLineEdit *m_execPath;
 	QPushButton *m_solve;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;
@@ -53,7 +57,7 @@ private:
 	int m_viewingPlyNumber = 0;
 	bool m_anyUpdates = false;
 	bool m_isSolving = false;
-	std::unique_ptr<MacondoInitOptions> initOptions;
+	std::unique_ptr<MacondoInitOptions> m_initOptions;
 };
 
 #endif

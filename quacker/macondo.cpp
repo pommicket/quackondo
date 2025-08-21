@@ -1,10 +1,9 @@
 /*
 TODO:
-- pre-endgame solve w generated moves only
 - configurable execPath
+     - Choose file... button
 - save options
 - detect Macondo crashing?
-- stop Macondo solve when game position changes
 - configurable max plies
 - other peg/endgame options
 */
@@ -18,6 +17,7 @@ TODO:
 #include <QLabel>
 #include <QGroupBox>
 #include <QMessageBox>
+#include <QLineEdit>
 
 Macondo::Macondo(Quackle::Game *game) : View() {
 	m_game = game;
@@ -27,9 +27,12 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	const char *home = getenv("HOME");
 	std::string execPath = home ? home : "/";
 	execPath += "/apps/macondo/macondo";
-	initOptions = std::make_unique<MacondoInitOptions>(execPath);
-	m_backend = new MacondoBackend(game, *initOptions);
+	m_initOptions = std::make_unique<MacondoInitOptions>(execPath);
+	m_backend = new MacondoBackend(game, *m_initOptions);
 	connectBackendSignals();
+	QLabel *execPathLabel = new QLabel(tr("Macondo executable"));
+	QPushButton *selectExecButton = new QPushButton(tr("Choose File..."));
+	m_execPath = new QLineEdit;
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
 	QGroupBox *pegBox = new QGroupBox(tr("Pre-endgame options"));
@@ -37,17 +40,29 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	m_generatedMovesOnly = new QCheckBox(tr("Generated moves only"));
 	m_generatedMovesOnly->setToolTip("Only analyze the moves that have been generated in the 'Choices' box.");
 	pegLayout->addWidget(m_generatedMovesOnly);
-	QGridLayout *layout = new QGridLayout(this);
 	pegBox->setLayout(pegLayout);
+	QHBoxLayout *execPathLayout = new QHBoxLayout;
+	execPathLayout->addWidget(execPathLabel);
+	execPathLayout->addWidget(m_execPath);
+	execPathLayout->addWidget(selectExecButton);
+	QVBoxLayout *layout = new QVBoxLayout(this);
 	layout->setAlignment(Qt::AlignTop);
-	layout->addWidget(m_useMacondo, 0, 0);
-	layout->addWidget(pegBox, 1, 0);
-	layout->addWidget(m_solve, 2, 0);
+	layout->addLayout(execPathLayout);
+	layout->addWidget(m_useMacondo);
+	layout->addWidget(pegBox);
+	layout->addWidget(m_solve);
 	connect(m_solve, SIGNAL(clicked()), this, SLOT(solve()));
+	connect(m_execPath, SIGNAL(editingFinished()), this, SLOT(newExecPath()));
 }
 
 Macondo::~Macondo() {
 	delete m_backend;
+}
+
+void Macondo::newExecPath() {
+	std::string newPath = m_execPath->text().toStdString();
+	m_backend->setExecPath(newPath);
+	m_initOptions->execPath = newPath;
 }
 
 void Macondo::simulate() {
@@ -96,7 +111,7 @@ void Macondo::solve() {
 
 void Macondo::gameChanged(Quackle::Game *game) {
 	delete m_backend;
-	m_backend = new MacondoBackend(game, *initOptions);
+	m_backend = new MacondoBackend(game, *m_initOptions);
 	connectBackendSignals();
 	m_game = game;
 }

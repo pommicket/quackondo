@@ -33,6 +33,9 @@ public:
 	void solveEndgame(const MacondoEndgameOptions &options);
 	void solvePreEndgame(const MacondoPreEndgameOptions &options);
 	std::string getSimResults();
+	inline void setExecPath(const std::string &path) {
+		m_execPath = path;
+	}
 	inline bool isRunning() const { return m_command != Command::None; }
 	// stop current Macondo analysis
 	void stop();
