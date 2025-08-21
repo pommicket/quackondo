@@ -15,9 +15,13 @@ TODO:
 #include <QGridLayout>
 #include <QPushButton>
 #include <QCheckBox>
+#include <QLabel>
+#include <QGroupBox>
 
 Macondo::Macondo(Quackle::Game *game) : View() {
 	m_game = game;
+	QFont boldFont;
+	boldFont.setWeight(QFont::Bold);
 	m_useMacondo = new QCheckBox(tr("Use Macondo for 'Simulate'"));
 	const char *home = getenv("HOME");
 	std::string execPath = home ? home : "/";
@@ -27,10 +31,17 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	connectBackendSignals();
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
+	QGroupBox *pegBox = new QGroupBox(tr("Pre-endgame options"));
+	QVBoxLayout *pegLayout = new QVBoxLayout;
+	m_generatedMovesOnly = new QCheckBox(tr("Generated moves only"));
+	m_generatedMovesOnly->setToolTip("Only analyze the moves that have been generated in the 'Choices' box.");
+	pegLayout->addWidget(m_generatedMovesOnly);
 	QGridLayout *layout = new QGridLayout(this);
+	pegBox->setLayout(pegLayout);
 	layout->setAlignment(Qt::AlignTop);
 	layout->addWidget(m_useMacondo, 0, 0);
 	layout->addWidget(m_solve, 1, 0);
+	layout->addWidget(pegBox, 2, 0);
 	connect(m_solve, SIGNAL(clicked()), this, SLOT(solve()));
 }
 

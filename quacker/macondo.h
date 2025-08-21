@@ -43,6 +43,7 @@ private:
 	void connectBackendSignals();
 	void updateSolveButton();
 	QCheckBox *m_useMacondo;
+	QCheckBox *m_generatedMovesOnly;
 	QPushButton *m_solve;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;

@@ -1063,11 +1063,10 @@ void TopLevel::simulate(bool startSimulation)
 	// it's not so useful to have sim control show/hide
 	// like this
 	//m_simulatorWidget->setVisible(startSimulation);
-	if (m_macondo->useForSimulation()) {
-		m_macondo->simulate();
-	}
 	if (startSimulation)
 	{
+		if (m_macondo->useForSimulation())
+			m_macondo->simulate();
 		logfileChanged();
 		incrementSimulation();
 	}
