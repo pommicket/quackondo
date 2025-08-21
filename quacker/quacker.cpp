@@ -1047,6 +1047,7 @@ void TopLevel::commitTopChoice()
 void TopLevel::ensureUpToDateSimulatorMoveList()
 {
 	m_simulator->setIncludedMoves(m_game->currentPosition().moves());
+	m_macondo->clearMoves();
 }
 
 void TopLevel::simulate(bool startSimulation)
@@ -1106,6 +1107,7 @@ void TopLevel::clearSimulationResults()
 		return;
 
 	m_simulator->resetNumbers();
+	m_macondo->clearMoves();
 
 	updateMoveViews();
 	updateSimViews();
@@ -2043,6 +2045,7 @@ void TopLevel::createWidgets()
 	m_macondo = new Macondo(m_game);
 	plugIntoMatrix(m_macondo);
 	plugIntoPositionMatrix(m_macondo);
+	plugIntoMoveMatrix(m_macondo);
 	connect(m_macondo, SIGNAL(runningSolver()), this, SLOT(simulate()));
 	connect(m_macondo, SIGNAL(stoppedSolver()), this, SLOT(stopSimulation()));
 

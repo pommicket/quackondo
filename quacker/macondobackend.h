@@ -19,6 +19,8 @@ struct MacondoEndgameOptions {
 	inline MacondoEndgameOptions() {}
 };
 struct MacondoPreEndgameOptions {
+	// if empty, we'll get Macondo to analyze all possible moves
+	Quackle::MoveList movesToAnalyze;
 	inline MacondoPreEndgameOptions() {}
 };
 
@@ -66,6 +68,7 @@ private:
 	QByteArray m_processStderr;
 	Command m_command = Command::None;
 	Quackle::MoveList m_movesToLoad;
+	MacondoPreEndgameOptions m_preEndgameOptions;
 };
 
 #endif

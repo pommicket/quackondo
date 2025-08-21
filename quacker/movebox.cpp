@@ -175,8 +175,12 @@ void MoveBox::setMoves(const Quackle::MoveList &moves, const Quackle::Move &sele
 		{
 			if (mapIt.key() == *it)
 			{
-				mapIt.value()->setText(WinPercentageColumn, formatWinPercentage((*it).win));
-				mapIt.value()->setText(EquityColumn, formatValuation((*it).equity));
+				QTreeWidgetItem *item = mapIt.value();
+				item->setText(WinPercentageColumn, formatWinPercentage((*it).win));
+				item->setText(EquityColumn, formatValuation((*it).equity));
+				for (int column = 0; column < m_treeWidget->columnCount(); column++) {
+					item->setToolTip(column, QString::fromStdString((*it).comment));
+				}
 
 				if (resorted)
 				{

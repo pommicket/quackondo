@@ -120,10 +120,11 @@ void MacondoBackend::solveEndgame(const MacondoEndgameOptions &) {
 	m_command = Command::SolveEndgame;
 }
 
-void MacondoBackend::solvePreEndgame(const MacondoPreEndgameOptions &) {
+void MacondoBackend::solvePreEndgame(const MacondoPreEndgameOptions &options) {
 	startProcess();
 	m_command = Command::SolvePreEndgame;
 	m_preEndgamePlaysToAnalyze = 0;
+	m_preEndgameOptions = options;
 }
 
 static bool parseInt(const string &s, int &value, size_t *len) {
@@ -413,6 +414,7 @@ void MacondoBackend::timer() {
 		data = m_process->readAllStandardOutput();
 		anyNewOutput |= data.size() != 0;
 		m_processOutput.append(data);
+		//printf("%.*s",data.size(), data.constData());
 		fflush(stdout);
 	}
 	const char *dots = updateDots(anyNewOutput);
@@ -531,6 +533,21 @@ void MacondoBackend::timer() {
 	}
 }
 
+static string moveToString(const Quackle::Move &move) {
+	switch (move.action) {
+	case Quackle::Move::Action::Pass:
+		return "pass";
+	case Quackle::Move::Action::Exchange:
+		return std::string("exch ") + QUACKLE_ALPHABET_PARAMETERS->userVisible(move.tiles());
+	case Quackle::Move::Action::Place:
+	case Quackle::Move::Action::PlaceError:
+		return move.positionString() + " " + QUACKLE_ALPHABET_PARAMETERS->userVisible(move.tiles());
+	default:
+		// blind exchanges, etc.
+		return "";
+	}
+}
+
 void MacondoBackend::processStarted() {
 	loadGCG();
 	switch (m_command) {
@@ -541,26 +558,12 @@ void MacondoBackend::processStarted() {
 			std::stringstream commands;
 			// add generated moves to Macondo
 			for (const Quackle::Move &move: m_movesToLoad) {
-				commands << "add ";
-				switch (move.action) {
-				case Quackle::Move::Action::Pass:
-					commands << "pass";
-					break;
-				case Quackle::Move::Action::Exchange:
-					commands << "exch ";
-					commands << QUACKLE_ALPHABET_PARAMETERS->userVisible(move.tiles());
-					break;
-				case Quackle::Move::Action::Place:
-				case Quackle::Move::Action::PlaceError:
-					commands << move.positionString();
-					commands << " ";
-					commands << QUACKLE_ALPHABET_PARAMETERS->userVisible(move.prettyTiles());
-					break;
-				default:
-					// ignore non-plays
-					break;
+				string moveStr = moveToString(move);
+				if (!moveStr.empty()) {
+					commands << "add ";
+					commands << moveStr;
+					commands << "\n";
 				}
-				commands << "\n";
 			}
 			
 			commands << "sim\n";
@@ -569,7 +572,20 @@ void MacondoBackend::processStarted() {
 		}
 		break;
 	case Command::SolvePreEndgame:
-		m_process->write("peg -disable-id true -early-cutoff true\n");
+		{
+			std::stringstream command;
+			command << "peg ";
+			for (const Quackle::Move &move: m_preEndgameOptions.movesToAnalyze) {
+				string moveStr = moveToString(move);
+				if (!moveStr.empty()) {
+					command << "-only-solve \"" << moveStr << "\" ";
+				}
+			}
+			command << "-disable-id true ";
+			command << "-early-cutoff true ";
+			command << "\n";
+			m_process->write(command.str().c_str());
+		}
 		break;
 	case Command::SolveEndgame:
 		m_process->write("endgame -plies 20\n");
@@ -615,7 +631,7 @@ void MacondoBackend::killProcess() {
 		m_process->kill();
 		// this is really unnecessary but prevents a
 		// "process destroyed while running" warning message
-		m_process->waitForFinished(100);
+		m_process->waitForFinished(200);
 		delete m_process;
 		m_process = nullptr;
 	}

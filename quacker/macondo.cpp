@@ -17,6 +17,7 @@ TODO:
 #include <QCheckBox>
 #include <QLabel>
 #include <QGroupBox>
+#include <QMessageBox>
 
 Macondo::Macondo(Quackle::Game *game) : View() {
 	m_game = game;
@@ -40,8 +41,8 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	pegBox->setLayout(pegLayout);
 	layout->setAlignment(Qt::AlignTop);
 	layout->addWidget(m_useMacondo, 0, 0);
-	layout->addWidget(m_solve, 1, 0);
-	layout->addWidget(pegBox, 2, 0);
+	layout->addWidget(pegBox, 1, 0);
+	layout->addWidget(m_solve, 2, 0);
 	connect(m_solve, SIGNAL(clicked()), this, SLOT(solve()));
 }
 
@@ -73,14 +74,21 @@ void Macondo::solve() {
 	if (wasSolving) {
 		emit stoppedSolver();
 	} else {
-		emit runningSolver();
 		if (m_tilesUnseen > 7) {
 			MacondoPreEndgameOptions options;
+			if (m_generatedMovesOnly->isChecked()) {
+				if (m_movesFromKibitzer.empty()) {
+					QMessageBox::critical(this, tr("Can't run pre-endgame solver"), tr("Please generate moves to analyze or uncheck 'Generated moves only'"));
+					return;
+				}
+				options.movesToAnalyze = m_movesFromKibitzer;
+			}
 			m_backend->solvePreEndgame(options);
 		} else {
 			MacondoEndgameOptions options;
 			m_backend->solveEndgame(options);
 		}
+		emit runningSolver();
 		m_isSolving = true;
 	}
 	updateSolveButton();
