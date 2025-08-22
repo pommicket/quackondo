@@ -100,19 +100,22 @@ MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &op
 	m_updateTimer->start();
 }
 
-void MacondoBackend::startProcess() {
-	if (m_process) return;
+bool MacondoBackend::startProcess() {
+	if (m_process) return true;
 	m_process = new QProcess(this);
 	QStringList args;
 	m_process->start(m_execPath.c_str(), args);
 	connect(m_process, SIGNAL(started()), this, SLOT(processStarted()));
 	connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
+	return true;
 }
 
-void MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves) {
-	startProcess();
+bool MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves) {
+	if (!startProcess())
+		return false;
 	m_movesToLoad = moves;
 	m_command = Command::Simulate;
+	return true;
 }
 
 void MacondoBackend::solveEndgame(const MacondoEndgameOptions &) {
@@ -414,7 +417,7 @@ void MacondoBackend::timer() {
 		data = m_process->readAllStandardOutput();
 		anyNewOutput |= data.size() != 0;
 		m_processOutput.append(data);
-		//printf("%.*s",data.size(), data.constData());
+		printf("%.*s",data.size(), data.constData());
 		fflush(stdout);
 	}
 	const char *dots = updateDots(anyNewOutput);

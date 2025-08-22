@@ -18,15 +18,18 @@ TODO:
 #include <QMessageBox>
 #include <QOperatingSystemVersion>
 #include <QPushButton>
+#include <QSettings>
+
+#include "customqsettings.h"
 
 Macondo::Macondo(Quackle::Game *game) : View() {
+	CustomQSettings settings;
 	m_game = game;
 	QFont boldFont;
 	boldFont.setWeight(QFont::Bold);
 	m_useMacondo = new QCheckBox(tr("Use Macondo for 'Simulate'"));
-	const char *home = getenv("HOME");
-	std::string execPath = home ? home : "/";
-	execPath += "/apps/macondo/macondo";
+	m_useMacondo->setChecked(settings.value("macondo/useForSimulate", false).toBool());
+	std::string execPath = settings.value("macondo/execPath", "").toString().toStdString();
 	m_initOptions = std::make_unique<MacondoInitOptions>(execPath);
 	m_backend = new MacondoBackend(game, *m_initOptions);
 	connectBackendSignals();
@@ -34,6 +37,7 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	QPushButton *selectExecButton = new QPushButton(tr("Choose File..."));
 	connect(selectExecButton, SIGNAL(clicked()), this, SLOT(chooseExecPath()));
 	m_execPath = new QLineEdit;
+	m_execPath->setText(QString::fromStdString(execPath));
 	connect(m_execPath, SIGNAL(editingFinished()), this, SLOT(execPathChanged()));
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
@@ -41,6 +45,7 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	QVBoxLayout *pegLayout = new QVBoxLayout;
 	m_generatedMovesOnly = new QCheckBox(tr("Generated moves only"));
 	m_generatedMovesOnly->setToolTip("Only analyze the moves that have been generated in the 'Choices' box.");
+	m_generatedMovesOnly->setChecked(settings.value("macondo/generatedMovesOnly", false).toBool());
 	pegLayout->addWidget(m_generatedMovesOnly);
 	pegBox->setLayout(pegLayout);
 	QHBoxLayout *execPathLayout = new QHBoxLayout;
@@ -57,13 +62,19 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 }
 
 Macondo::~Macondo() {
+	CustomQSettings settings;
+	settings.setValue("macondo/useForSimulate", m_useMacondo->isChecked());
+	settings.setValue("macondo/generatedMovesOnly", m_generatedMovesOnly->isChecked());
 	delete m_backend;
 }
 
 void Macondo::setExecPath(const std::string &path) {
 	m_backend->setExecPath(path);
 	m_initOptions->execPath = path;
-	m_execPath->setText(QString::fromStdString(path));
+	QString qpath = QString::fromStdString(path);
+	m_execPath->setText(qpath);
+	CustomQSettings settings;
+	settings.setValue("macondo/execPath", qpath);
 }
 
 void Macondo::chooseExecPath() {
@@ -80,27 +91,36 @@ void Macondo::execPathChanged() {
 }
 
 bool Macondo::checkExecPath() {
-	if (m_initOptions->execPath.empty()) {
+	const std::string &execPath = m_initOptions->execPath;
+	if (execPath.empty()) {
 		QMessageBox::critical(this,
 			tr("Can't run Macondo"),
 			tr("Please fill in the location of Macondo on your computer.")
 		);
 		return false;
 	}
+	if (!QFile::exists(QString::fromStdString(execPath))) {
+		QString message = QString(tr("File %1 does not exist.")).arg(execPath.c_str());
+		QMessageBox::critical(this,
+			tr("Macondo not found"),
+			message
+		);
+		return false;
+	}
 	return true;
 }
 
-void Macondo::simulate() {
-	if (!checkExecPath()) return;
+bool Macondo::simulate() {
+	if (!checkExecPath()) return false;
 	if (m_isSolving) {
 		// don't start a simulation if we're solving a (pre-)endgame
-		return;
+		return true;
 	}
 	if (isRunning())
 		stop();
 	clearMoves();
 	MacondoSimulateOptions options;
-	m_backend->simulate(options, m_movesFromKibitzer);
+	return m_backend->simulate(options, m_movesFromKibitzer);
 }
 
 bool Macondo::isRunning() const {
@@ -133,8 +153,8 @@ void Macondo::solve() {
 			MacondoEndgameOptions options;
 			m_backend->solveEndgame(options);
 		}
-		emit runningSolver();
 		m_isSolving = true;
+		emit runningSolver();
 	}
 	updateSolveButton();
 }

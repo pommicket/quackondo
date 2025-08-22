@@ -1066,8 +1066,13 @@ void TopLevel::simulate(bool startSimulation)
 	//m_simulatorWidget->setVisible(startSimulation);
 	if (startSimulation)
 	{
-		if (m_macondo->useForSimulation())
-			m_macondo->simulate();
+		if (m_macondo->useForSimulation()) {
+			if (!m_macondo->simulate()) {
+				// Macondo failed to start
+				m_simulateAction->setChecked(false);
+				return;
+			}
+		}
 		logfileChanged();
 		incrementSimulation();
 	}

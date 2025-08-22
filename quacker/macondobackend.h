@@ -29,7 +29,7 @@ Q_OBJECT
 public:
 	MacondoBackend(Quackle::Game *game, const MacondoInitOptions &);
 	~MacondoBackend();
-	void simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves);
+	bool simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves);
 	void solveEndgame(const MacondoEndgameOptions &options);
 	void solvePreEndgame(const MacondoPreEndgameOptions &options);
 	std::string getSimResults();
@@ -53,7 +53,7 @@ private:
 		SolvePreEndgame,
 		SolveEndgame,
 	};
-	void startProcess();
+	bool startProcess();
 	void loadGCG();
 	void killProcess();
 	void removeTempGCG();

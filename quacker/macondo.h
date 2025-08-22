@@ -30,12 +30,13 @@ public:
 		return any;
 	}
 	bool isRunning() const;
+	// Start Macondo simulation -- returns false if there was an error starting Macondo.
+	bool simulate();
 	inline bool isSolving() const { return m_isSolving; }
 signals:
 	void runningSolver();
 	void stoppedSolver();
 public slots:
-	void simulate();
 	void solve();
 	void gameChanged(Quackle::Game *game) override;
 	void positionChanged(const Quackle::GamePosition *position) override;
