@@ -41,9 +41,12 @@ public slots:
 	void positionChanged(const Quackle::GamePosition *position) override;
 private slots:
 	void gotMoves(const Quackle::MoveList &moves);
-	void newExecPath();
+	void execPathChanged();
+	void chooseExecPath();
 private:
+	void setExecPath(const std::string &);
 	void connectBackendSignals();
+	bool checkExecPath();
 	void updateSolveButton();
 	QCheckBox *m_useMacondo;
 	QCheckBox *m_generatedMovesOnly;

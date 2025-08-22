@@ -1,7 +1,5 @@
 /*
 TODO:
-- configurable execPath
-     - Choose file... button
 - save options
 - detect Macondo crashing?
 - configurable max plies
@@ -11,13 +9,15 @@ TODO:
 #include "macondo.h"
 #include "macondobackend.h"
 
-#include <QGridLayout>
-#include <QPushButton>
 #include <QCheckBox>
-#include <QLabel>
+#include <QFileDialog>
+#include <QGridLayout>
 #include <QGroupBox>
-#include <QMessageBox>
+#include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QOperatingSystemVersion>
+#include <QPushButton>
 
 Macondo::Macondo(Quackle::Game *game) : View() {
 	m_game = game;
@@ -32,7 +32,9 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	connectBackendSignals();
 	QLabel *execPathLabel = new QLabel(tr("Macondo executable"));
 	QPushButton *selectExecButton = new QPushButton(tr("Choose File..."));
+	connect(selectExecButton, SIGNAL(clicked()), this, SLOT(chooseExecPath()));
 	m_execPath = new QLineEdit;
+	connect(m_execPath, SIGNAL(editingFinished()), this, SLOT(execPathChanged()));
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
 	QGroupBox *pegBox = new QGroupBox(tr("Pre-endgame options"));
@@ -52,20 +54,44 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	layout->addWidget(pegBox);
 	layout->addWidget(m_solve);
 	connect(m_solve, SIGNAL(clicked()), this, SLOT(solve()));
-	connect(m_execPath, SIGNAL(editingFinished()), this, SLOT(newExecPath()));
 }
 
 Macondo::~Macondo() {
 	delete m_backend;
 }
 
-void Macondo::newExecPath() {
-	std::string newPath = m_execPath->text().toStdString();
-	m_backend->setExecPath(newPath);
-	m_initOptions->execPath = newPath;
+void Macondo::setExecPath(const std::string &path) {
+	m_backend->setExecPath(path);
+	m_initOptions->execPath = path;
+	m_execPath->setText(QString::fromStdString(path));
+}
+
+void Macondo::chooseExecPath() {
+	QString filter;
+	if (QOperatingSystemVersion::current().type() == QOperatingSystemVersion::Windows) {
+		filter = tr("Executable files (*.exe)");
+	}
+	QString path = QFileDialog::getOpenFileName(this, tr("Select Macondo executable..."), QString(), filter);
+	setExecPath(path.toStdString());
+}
+
+void Macondo::execPathChanged() {
+	setExecPath(m_execPath->text().toStdString());
+}
+
+bool Macondo::checkExecPath() {
+	if (m_initOptions->execPath.empty()) {
+		QMessageBox::critical(this,
+			tr("Can't run Macondo"),
+			tr("Please fill in the location of Macondo on your computer.")
+		);
+		return false;
+	}
+	return true;
 }
 
 void Macondo::simulate() {
+	if (!checkExecPath()) return;
 	if (m_isSolving) {
 		// don't start a simulation if we're solving a (pre-)endgame
 		return;
@@ -82,6 +108,7 @@ bool Macondo::isRunning() const {
 }
 
 void Macondo::solve() {
+	if (!checkExecPath()) return;
 	bool wasSolving = m_isSolving;
 	if (isRunning())
 		stop();
@@ -93,7 +120,10 @@ void Macondo::solve() {
 			MacondoPreEndgameOptions options;
 			if (m_generatedMovesOnly->isChecked()) {
 				if (m_movesFromKibitzer.empty()) {
-					QMessageBox::critical(this, tr("Can't run pre-endgame solver"), tr("Please generate moves to analyze or uncheck 'Generated moves only'"));
+					QMessageBox::critical(this,
+						tr("Can't run pre-endgame solver"),
+						tr("Please generate moves to analyze or uncheck 'Generated moves only'")
+					);
 					return;
 				}
 				options.movesToAnalyze = m_movesFromKibitzer;
