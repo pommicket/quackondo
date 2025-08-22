@@ -17,6 +17,8 @@ struct MacondoSimulateOptions {
 };
 struct MacondoEndgameOptions {
 	inline MacondoEndgameOptions() {}
+	bool firstWinOptimization = false;
+	bool preventSlowRoll = false;
 	int maxPlies = 15;
 };
 struct MacondoPreEndgameOptions {

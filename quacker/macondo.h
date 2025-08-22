@@ -47,11 +47,16 @@ private:
 	void connectBackendSignals();
 	bool checkExecPath();
 	void updateSolveButton();
+
 	// == options ==
 	QCheckBox *m_useMacondo;
 	QLineEdit *m_execPath;
+
 	// == endgame options ==
 	QSpinBox *m_endgameMaxPlies;
+	QCheckBox *m_firstWinOptimization;
+	QCheckBox *m_preventSlowRoll;
+
 	// == pre-endgame options ===
 	QCheckBox *m_generatedMovesOnly;
 	QCheckBox *m_earlyCutoff;
@@ -59,6 +64,7 @@ private:
 	QCheckBox *m_skipTieBreaker;
 	QLineEdit *m_opponentRack;
 	QSpinBox *m_preEndgameMaxPlies;
+
 	QPushButton *m_solve;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;

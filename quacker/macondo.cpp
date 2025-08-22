@@ -1,8 +1,3 @@
-/*
-TODO:
-- more endgame options
-*/
-
 #include "macondo.h"
 #include "macondobackend.h"
 
@@ -93,7 +88,16 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	m_endgameMaxPlies = new QSpinBox;
 	m_endgameMaxPlies->setRange(1, 100);
 	m_endgameMaxPlies->setValue(settings.value("macondo/endgameMaxPlies", 15).toInt());
+	m_firstWinOptimization = new QCheckBox(tr("First-win optimization"));
+	m_firstWinOptimization->setToolTip(tr("Stop analysis as soon as a win is found. Speeds up analysis, but no longer ensures the best possible spread."));
+	m_firstWinOptimization->setChecked(settings.value("macondo/firstWinOptimization", false).toBool());
+	m_preventSlowRoll = new QCheckBox(tr("Prevent slow-roll"));
+	m_preventSlowRoll->setChecked(settings.value("macondo/preventSlowRoll", false).toBool());
+	m_preventSlowRoll->setToolTip(tr("Skip analyzing \"slow-plays\" when seemingly better options exist. This speeds up the solver, but may miss optimal endgame sequences."));
 	endgameLayout->addLayout(new LabelLayout(tr("Plies"), m_endgameMaxPlies));
+	endgameLayout->addWidget(m_firstWinOptimization);
+	endgameLayout->addWidget(m_preventSlowRoll);
+
 	QVBoxLayout *layout = new QVBoxLayout(this);
 	layout->setAlignment(Qt::AlignTop);
 	layout->addLayout(execPathLayout);
@@ -113,6 +117,8 @@ Macondo::~Macondo() {
 	settings.setValue("macondo/earlyCutoff", m_earlyCutoff->isChecked());
 	settings.setValue("macondo/skipNonEmptying", m_skipNonEmptying->isChecked());
 	settings.setValue("macondo/skipTieBreaker", m_skipTieBreaker->isChecked());
+	settings.setValue("macondo/firstWinOptimization", m_firstWinOptimization->isChecked());
+	settings.setValue("macondo/preventSlowRoll", m_preventSlowRoll->isChecked());
 	
 	delete m_backend;
 }
@@ -204,6 +210,8 @@ void Macondo::solve() {
 		} else {
 			MacondoEndgameOptions options;
 			options.maxPlies = m_endgameMaxPlies->value();
+			options.firstWinOptimization = m_firstWinOptimization->isChecked();
+			options.preventSlowRoll = m_preventSlowRoll->isChecked();
 			m_backend->solveEndgame(options);
 		}
 		m_isSolving = true;

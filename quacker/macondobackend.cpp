@@ -18,7 +18,8 @@ using std::vector;
 // We can change these whenever Macondo's output format changes.
 static const QByteArray simPlaysStartMarker("Play                Leave         Score    Win%            Equity");
 static const QByteArray simPlaysEndMarker("Iterations:");
-static const QByteArray endgameSpreadDiffMarker("Best sequence has a spread difference (value) of ");
+static const QByteArray endgameSpreadDiffMarker1("Best sequence has a spread difference (value) of ");
+static const QByteArray endgameSpreadDiffMarker2("Spread diff: "); // this is used if first-win-optim is enabled
 static const QByteArray endgameFinalSpreadMarker("Final spread after seq: ");
 static const QByteArray endgameBestSeqMarker("Best sequence:\n");
 // marks current ply depth during endgame solving
@@ -268,7 +269,9 @@ static Quackle::MoveList extractSimMoves(QByteArray &processOutput) {
 }
 
 static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
-	int spreadDiffMarkerIdx = processOutput.indexOf(endgameSpreadDiffMarker);
+	const QByteArray &spreadDiffMarker = processOutput.contains(endgameSpreadDiffMarker1)
+		? endgameSpreadDiffMarker1 : endgameSpreadDiffMarker2;
+	int spreadDiffMarkerIdx = processOutput.indexOf(spreadDiffMarker);
 	if (spreadDiffMarkerIdx < 0) {
 		// delete all output except for the last line (which may be incomplete)
 		int lastLineIndex = processOutput.lastIndexOf('\n');
@@ -279,7 +282,7 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 		}
 		return false;
 	}
-	int spreadDiffStart = spreadDiffMarkerIdx + endgameSpreadDiffMarker.length();
+	int spreadDiffStart = spreadDiffMarkerIdx + spreadDiffMarker.length();
 	int spreadDiffEnd = processOutput.indexOf("\n", spreadDiffStart);
 	if (spreadDiffEnd < 0) return false;
 	int spreadDiff = -999;
@@ -418,7 +421,10 @@ void MacondoBackend::timer() {
 		data = m_process->readAllStandardOutput();
 		anyNewOutput |= data.size() != 0;
 		m_processOutput.append(data);
-		//printf("%.*s",data.size(), data.constData());
+		if (false) {
+			// print Macondo stdout
+			printf("%.*s",data.size(), data.constData());
+		}
 		fflush(stdout);
 	}
 	const char *dots = updateDots(anyNewOutput);
@@ -600,6 +606,8 @@ void MacondoBackend::processStarted() {
 		{
 			std::stringstream command;
 			command << "endgame ";
+			command << "-first-win-optim " << (m_endgameOptions.firstWinOptimization ? "true" : "false") << " ";
+			command << "-prevent-slowroll " << (m_endgameOptions.preventSlowRoll ? "true" : "false") << " ";
 			command << "-plies " << m_endgameOptions.maxPlies << " ";
 			command << "\n";
 			m_process->write(command.str().c_str());
