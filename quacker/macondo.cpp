@@ -1,14 +1,13 @@
 /*
 TODO:
-- detect Macondo crashing?
-- configurable max plies
-- other peg/endgame options
+- more peg/endgame options
 */
 
 #include "macondo.h"
 #include "macondobackend.h"
 
 #include <QCheckBox>
+#include <QCoreApplication>
 #include <QFileDialog>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -18,8 +17,18 @@ TODO:
 #include <QOperatingSystemVersion>
 #include <QPushButton>
 #include <QSettings>
+#include <QSpinBox>
 
 #include "customqsettings.h"
+
+// Convenience wrapper around an hbox containing a label and another widget.
+class LabelLayout: public QHBoxLayout {
+public:
+	LabelLayout(const QString &label, QWidget *widget): QHBoxLayout() {
+		addWidget(new QLabel(label));
+		addWidget(widget);
+	}
+};
 
 Macondo::Macondo(Quackle::Game *game) : View() {
 	CustomQSettings settings;
@@ -28,7 +37,8 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	boldFont.setWeight(QFont::Bold);
 	m_useMacondo = new QCheckBox(tr("Use Macondo for 'Simulate'"));
 	m_useMacondo->setChecked(settings.value("macondo/useForSimulate", false).toBool());
-	std::string execPath = settings.value("macondo/execPath", "").toString().toStdString();
+	QString defaultExecPath = QCoreApplication::applicationDirPath() + "/macondo/macondo";
+	std::string execPath = settings.value("macondo/execPath", defaultExecPath).toString().toStdString();
 	m_initOptions = std::make_unique<MacondoInitOptions>(execPath);
 	m_backend = new MacondoBackend(game, *m_initOptions);
 	connectBackendSignals();
@@ -40,22 +50,37 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	connect(m_execPath, SIGNAL(editingFinished()), this, SLOT(execPathChanged()));
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
+
+	QHBoxLayout *execPathLayout = new QHBoxLayout;
+	execPathLayout->addWidget(execPathLabel);
+	execPathLayout->addWidget(m_execPath);
+	execPathLayout->addWidget(selectExecButton);
+
 	QGroupBox *pegBox = new QGroupBox(tr("Pre-endgame options"));
 	QVBoxLayout *pegLayout = new QVBoxLayout;
 	m_generatedMovesOnly = new QCheckBox(tr("Generated moves only"));
 	m_generatedMovesOnly->setToolTip("Only analyze the moves that have been generated in the 'Choices' box.");
 	m_generatedMovesOnly->setChecked(settings.value("macondo/generatedMovesOnly", false).toBool());
+	m_preEndgameMaxPlies = new QSpinBox;
+	m_preEndgameMaxPlies->setRange(1, 100);
+	m_preEndgameMaxPlies->setValue(settings.value("macondo/preEndgameMaxPlies", 4).toInt());
 	pegLayout->addWidget(m_generatedMovesOnly);
+	pegLayout->addLayout(new LabelLayout(tr("Endgame plies"), m_preEndgameMaxPlies));
 	pegBox->setLayout(pegLayout);
-	QHBoxLayout *execPathLayout = new QHBoxLayout;
-	execPathLayout->addWidget(execPathLabel);
-	execPathLayout->addWidget(m_execPath);
-	execPathLayout->addWidget(selectExecButton);
+
+	QGroupBox *endgameBox = new QGroupBox(tr("Endgame options"));
+	QVBoxLayout *endgameLayout = new QVBoxLayout;
+	endgameBox->setLayout(endgameLayout);
+	m_endgameMaxPlies = new QSpinBox;
+	m_endgameMaxPlies->setRange(1, 100);
+	m_endgameMaxPlies->setValue(settings.value("macondo/endgameMaxPlies", 15).toInt());
+	endgameLayout->addLayout(new LabelLayout(tr("Plies"), m_endgameMaxPlies));
 	QVBoxLayout *layout = new QVBoxLayout(this);
 	layout->setAlignment(Qt::AlignTop);
 	layout->addLayout(execPathLayout);
 	layout->addWidget(m_useMacondo);
 	layout->addWidget(pegBox);
+	layout->addWidget(endgameBox);
 	layout->addWidget(m_solve);
 	connect(m_solve, SIGNAL(clicked()), this, SLOT(solve()));
 }
@@ -64,6 +89,8 @@ Macondo::~Macondo() {
 	CustomQSettings settings;
 	settings.setValue("macondo/useForSimulate", m_useMacondo->isChecked());
 	settings.setValue("macondo/generatedMovesOnly", m_generatedMovesOnly->isChecked());
+	settings.setValue("macondo/endgameMaxPlies", m_endgameMaxPlies->value());
+	settings.setValue("macondo/preEndgameMaxPlies", m_preEndgameMaxPlies->value());
 	delete m_backend;
 }
 
@@ -135,6 +162,7 @@ void Macondo::solve() {
 	} else {
 		if (m_tilesUnseen > 7) {
 			MacondoPreEndgameOptions options;
+			options.endgamePlies = m_preEndgameMaxPlies->value();
 			if (m_generatedMovesOnly->isChecked()) {
 				if (m_movesFromKibitzer.empty()) {
 					QMessageBox::critical(this,
@@ -148,6 +176,7 @@ void Macondo::solve() {
 			m_backend->solvePreEndgame(options);
 		} else {
 			MacondoEndgameOptions options;
+			options.maxPlies = m_endgameMaxPlies->value();
 			m_backend->solveEndgame(options);
 		}
 		m_isSolving = true;

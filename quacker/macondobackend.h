@@ -17,10 +17,12 @@ struct MacondoSimulateOptions {
 };
 struct MacondoEndgameOptions {
 	inline MacondoEndgameOptions() {}
+	int maxPlies = 15;
 };
 struct MacondoPreEndgameOptions {
 	// if empty, we'll get Macondo to analyze all possible moves
 	Quackle::MoveList movesToAnalyze;
+	int endgamePlies = 4;
 	inline MacondoPreEndgameOptions() {}
 };
 
@@ -64,6 +66,7 @@ private:
 	QTimer *m_updateTimer = nullptr;
 	int m_solveStatusDots = 3;
 	int m_preEndgamePlaysToAnalyze = 0;
+	int m_preEndgamePlaysAnalyzed = 0;
 	// is simulation being run right now? (i.e. has process been started & game been loaded?)
 	bool m_runningSimulation = false;
 	Quackle::Game *m_game;
@@ -72,6 +75,7 @@ private:
 	Command m_command = Command::None;
 	Quackle::MoveList m_movesToLoad;
 	MacondoPreEndgameOptions m_preEndgameOptions;
+	MacondoEndgameOptions m_endgameOptions;
 };
 
 #endif

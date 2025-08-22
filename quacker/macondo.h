@@ -7,6 +7,7 @@
 class QCheckBox;
 class QPushButton;
 class QLineEdit;
+class QSpinBox;
 class MacondoBackend;
 struct MacondoInitOptions;
 class MoveBox;
@@ -46,9 +47,14 @@ private:
 	void connectBackendSignals();
 	bool checkExecPath();
 	void updateSolveButton();
+	// == options ==
 	QCheckBox *m_useMacondo;
-	QCheckBox *m_generatedMovesOnly;
 	QLineEdit *m_execPath;
+	// == endgame options ==
+	QSpinBox *m_endgameMaxPlies;
+	// == pre-endgame options ===
+	QCheckBox *m_generatedMovesOnly;
+	QSpinBox *m_preEndgameMaxPlies;
 	QPushButton *m_solve;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;

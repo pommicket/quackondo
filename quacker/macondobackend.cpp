@@ -118,16 +118,17 @@ bool MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quack
 	return true;
 }
 
-void MacondoBackend::solveEndgame(const MacondoEndgameOptions &) {
+void MacondoBackend::solveEndgame(const MacondoEndgameOptions &options) {
+	m_endgameOptions = options;
 	startProcess();
 	m_command = Command::SolveEndgame;
 }
 
 void MacondoBackend::solvePreEndgame(const MacondoPreEndgameOptions &options) {
-	startProcess();
-	m_command = Command::SolvePreEndgame;
 	m_preEndgamePlaysToAnalyze = 0;
 	m_preEndgameOptions = options;
+	startProcess();
+	m_command = Command::SolvePreEndgame;
 }
 
 static bool parseInt(const string &s, int &value, size_t *len) {
@@ -473,12 +474,11 @@ void MacondoBackend::timer() {
 				i += preEndgameProgressMarker.length();
 				m_processStderr = QByteArray(m_processStderr.constData() + i, m_processStderr.size() - i);
 				string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
-				int numPlays = 0;
-				parseInt(numPlaysStr, numPlays, nullptr);
-				std::stringstream message;
-				message << "Analyzed " << numPlays << "/" << m_preEndgamePlaysToAnalyze << " plays" << dots;
-				emit statusMessage(QString::fromStdString(message.str()));
+				parseInt(numPlaysStr, m_preEndgamePlaysAnalyzed, nullptr);
 			}
+			std::stringstream message;
+			message << "Analyzed " << m_preEndgamePlaysAnalyzed << "/" << m_preEndgamePlaysToAnalyze << " plays" << dots;
+			emit statusMessage(QString::fromStdString(message.str()));		
 		} else {
 			// no progress yet
 			emit statusMessage(QString("Solving pre-endgame") + dots);
@@ -584,6 +584,7 @@ void MacondoBackend::processStarted() {
 					command << "-only-solve \"" << moveStr << "\" ";
 				}
 			}
+			command << "-endgameplies " << m_preEndgameOptions.endgamePlies << " ";
 			command << "-disable-id true ";
 			command << "-early-cutoff true ";
 			command << "\n";
@@ -591,7 +592,13 @@ void MacondoBackend::processStarted() {
 		}
 		break;
 	case Command::SolveEndgame:
-		m_process->write("endgame -plies 20\n");
+		{
+			std::stringstream command;
+			command << "endgame ";
+			command << "-plies " << m_endgameOptions.maxPlies << " ";
+			command << "\n";
+			m_process->write(command.str().c_str());
+		}
 		break;
 	}
 }
