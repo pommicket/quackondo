@@ -20,9 +20,6 @@ public:
 	void stop();
 	// should Macondo be used for simulations?
 	bool useForSimulation() const;
-	inline const Quackle::MoveList &getMoves() const { return m_moves; }
-	inline bool hasMoves() const { return !m_moves.empty(); }
-	inline void clearMoves() { m_moves.clear(); }
 	// returns whether there have been any updates to moves since last time anyUpdates() was called.
 	inline bool anyUpdates() {
 		bool any = m_anyUpdates;
@@ -55,7 +52,6 @@ private:
 	QPushButton *m_solve;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;
-	Quackle::MoveList m_moves;
 	Quackle::MoveList m_movesFromKibitzer;
 	int m_tilesUnseen = 93;
 	int m_viewingPlyNumber = 0;

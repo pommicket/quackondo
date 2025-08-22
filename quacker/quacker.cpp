@@ -401,7 +401,7 @@ void TopLevel::setCandidateMove(const Quackle::Move *move, bool *carryOnPtr)
 	// a check if we have simulation results -- but we don't want to send out
 	// a moves changed signal if we don't have results because
 	// we just sent out a position changed signal
-	if (m_simulator->hasSimulationResults() || m_macondo->hasMoves())
+	if (m_simulator->hasSimulationResults())
 		updateMoveViews();
 }
 
@@ -622,10 +622,7 @@ void TopLevel::updatePositionViews()
 void TopLevel::updateMoveViews()
 {
 	Quackle::MoveList list;
-	if (m_macondo->hasMoves()) {
-		list = m_macondo->getMoves();
-	}
-	else if (m_simulator->hasSimulationResults())
+	if (m_simulator->hasSimulationResults())
 	{
 		list = m_simulator->moves(/* prune */ true, /* sort by win */ true);
 	}
@@ -1047,7 +1044,6 @@ void TopLevel::commitTopChoice()
 void TopLevel::ensureUpToDateSimulatorMoveList()
 {
 	m_simulator->setIncludedMoves(m_game->currentPosition().moves());
-	m_macondo->clearMoves();
 }
 
 void TopLevel::simulate(bool startSimulation)
@@ -1112,7 +1108,6 @@ void TopLevel::clearSimulationResults()
 		return;
 
 	m_simulator->resetNumbers();
-	m_macondo->clearMoves();
 
 	updateMoveViews();
 	updateSimViews();
@@ -1286,8 +1281,6 @@ void TopLevel::incrementSimulation()
 		// check again in 100ms
 		m_simulationTimer->start(100);
 	} else {
-		// clear Macondo moves to make way for Simulator moves
-		m_macondo->clearMoves();
 		m_simulator->simulate(m_plies);
 		m_simulationTimer->start(0);
 

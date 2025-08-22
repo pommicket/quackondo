@@ -1,6 +1,5 @@
 /*
 TODO:
-- save options
 - detect Macondo crashing?
 - configurable max plies
 - other peg/endgame options
@@ -118,7 +117,6 @@ bool Macondo::simulate() {
 	}
 	if (isRunning())
 		stop();
-	clearMoves();
 	MacondoSimulateOptions options;
 	return m_backend->simulate(options, m_movesFromKibitzer);
 }
@@ -132,7 +130,6 @@ void Macondo::solve() {
 	bool wasSolving = m_isSolving;
 	if (isRunning())
 		stop();
-	clearMoves();
 	if (wasSolving) {
 		emit stoppedSolver();
 	} else {
@@ -183,7 +180,7 @@ bool Macondo::useForSimulation() const {
 }
 
 void Macondo::gotMoves(const Quackle::MoveList &moves) {
-	m_moves = moves;
+	m_game->currentPosition().setMoves(moves);
 	m_anyUpdates = true;
 	if (m_isSolving && moves.size() > 0) {
 		emit setCandidateMove(&moves[0]);

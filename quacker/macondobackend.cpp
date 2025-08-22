@@ -417,7 +417,7 @@ void MacondoBackend::timer() {
 		data = m_process->readAllStandardOutput();
 		anyNewOutput |= data.size() != 0;
 		m_processOutput.append(data);
-		printf("%.*s",data.size(), data.constData());
+		//printf("%.*s",data.size(), data.constData());
 		fflush(stdout);
 	}
 	const char *dots = updateDots(anyNewOutput);
