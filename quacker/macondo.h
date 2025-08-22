@@ -54,6 +54,10 @@ private:
 	QSpinBox *m_endgameMaxPlies;
 	// == pre-endgame options ===
 	QCheckBox *m_generatedMovesOnly;
+	QCheckBox *m_earlyCutoff;
+	QCheckBox *m_skipNonEmptying;
+	QCheckBox *m_skipTieBreaker;
+	QLineEdit *m_opponentRack;
 	QSpinBox *m_preEndgameMaxPlies;
 	QPushButton *m_solve;
 	Quackle::Game *m_game;

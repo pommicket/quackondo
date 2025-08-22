@@ -1,6 +1,6 @@
 /*
 TODO:
-- more peg/endgame options
+- more endgame options
 */
 
 #include "macondo.h"
@@ -64,8 +64,27 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	m_preEndgameMaxPlies = new QSpinBox;
 	m_preEndgameMaxPlies->setRange(1, 100);
 	m_preEndgameMaxPlies->setValue(settings.value("macondo/preEndgameMaxPlies", 4).toInt());
+	m_earlyCutoff = new QCheckBox(tr("Early cut-off"));
+	m_earlyCutoff->setChecked(settings.value("macondo/earlyCutoff", true).toBool());
+	m_earlyCutoff->setToolTip(tr("Cut off analysis if another play is certainly better."
+		" This speeds up analysis but moves other than the top one might not be listed in the correct order."));
+	m_skipNonEmptying = new QCheckBox(tr("Skip non-emptying"));
+	m_skipNonEmptying->setToolTip(tr("Skip analyzing plays which don't empty the bag."
+		" This speeds up analysis but may miss optimal non-emptying plays."));
+	m_skipNonEmptying->setChecked(settings.value("macondo/skipNonEmptying", true).toBool());
+	m_skipTieBreaker = new QCheckBox(tr("Skip tie-breaker"));
+	m_skipTieBreaker->setToolTip(tr("Skip breaking win% ties by spread. "
+		"This speeds up analysis but the top-ranked play might not have the best spread."));
+	m_skipTieBreaker->setChecked(settings.value("macondo/skipTieBreaker", false).toBool());
+	m_opponentRack = new QLineEdit;
+	m_opponentRack->setToolTip("Enter any tiles which you know your opponent has here, for more accurate analysis.");
+
 	pegLayout->addWidget(m_generatedMovesOnly);
+	pegLayout->addWidget(m_earlyCutoff);
+	pegLayout->addWidget(m_skipNonEmptying);
+	pegLayout->addWidget(m_skipTieBreaker);
 	pegLayout->addLayout(new LabelLayout(tr("Endgame plies"), m_preEndgameMaxPlies));
+	pegLayout->addLayout(new LabelLayout(tr("Opponent rack"), m_opponentRack));
 	pegBox->setLayout(pegLayout);
 
 	QGroupBox *endgameBox = new QGroupBox(tr("Endgame options"));
@@ -91,6 +110,10 @@ Macondo::~Macondo() {
 	settings.setValue("macondo/generatedMovesOnly", m_generatedMovesOnly->isChecked());
 	settings.setValue("macondo/endgameMaxPlies", m_endgameMaxPlies->value());
 	settings.setValue("macondo/preEndgameMaxPlies", m_preEndgameMaxPlies->value());
+	settings.setValue("macondo/earlyCutoff", m_earlyCutoff->isChecked());
+	settings.setValue("macondo/skipNonEmptying", m_skipNonEmptying->isChecked());
+	settings.setValue("macondo/skipTieBreaker", m_skipTieBreaker->isChecked());
+	
 	delete m_backend;
 }
 
@@ -163,6 +186,10 @@ void Macondo::solve() {
 		if (m_tilesUnseen > 7) {
 			MacondoPreEndgameOptions options;
 			options.endgamePlies = m_preEndgameMaxPlies->value();
+			options.earlyCutoff = m_earlyCutoff->isChecked();
+			options.skipNonEmptying = m_skipNonEmptying->isChecked();
+			options.skipTieBreaker = m_skipTieBreaker->isChecked();
+			options.opponentRack = m_opponentRack->text().toStdString();
 			if (m_generatedMovesOnly->isChecked()) {
 				if (m_movesFromKibitzer.empty()) {
 					QMessageBox::critical(this,

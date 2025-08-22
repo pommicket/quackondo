@@ -23,6 +23,10 @@ struct MacondoPreEndgameOptions {
 	// if empty, we'll get Macondo to analyze all possible moves
 	Quackle::MoveList movesToAnalyze;
 	int endgamePlies = 4;
+	bool skipNonEmptying = false;
+	bool skipTieBreaker = false;
+	bool earlyCutoff = false;
+	std::string opponentRack;
 	inline MacondoPreEndgameOptions() {}
 };
 

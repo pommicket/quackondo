@@ -586,7 +586,12 @@ void MacondoBackend::processStarted() {
 			}
 			command << "-endgameplies " << m_preEndgameOptions.endgamePlies << " ";
 			command << "-disable-id true ";
-			command << "-early-cutoff true ";
+			command << "-early-cutoff " << (m_preEndgameOptions.earlyCutoff ? "true" : "false") << " ";
+			command << "-skip-nonemptying " << (m_preEndgameOptions.skipNonEmptying ? "true" : "false") << " ";
+			command << "-skip-tiebreaker " << (m_preEndgameOptions.skipTieBreaker ? "true" : "false") << " ";
+			if (!m_preEndgameOptions.opponentRack.empty()) {
+				command << "-opprack " << m_preEndgameOptions.opponentRack << " ";
+			}
 			command << "\n";
 			m_process->write(command.str().c_str());
 		}
