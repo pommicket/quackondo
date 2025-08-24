@@ -191,9 +191,12 @@ Quackle::Move MacondoBackend::createPlaceMove(const std::string &placement, cons
 			dotDescription += tiles.substr(i);
 			break;
 		}
-		dotDescription += tiles.substr(i, j) + ".";
+		dotDescription += tiles.substr(i, j - i);
 		i = tiles.find(')', j);
 		if (i == std::string::npos) throw "mismatched parentheses";
+		// add appropriate number of dots
+		for (size_t d = 1; d < i - j; d++)
+			dotDescription.push_back('.');
 		i++;
 	}
 	auto move = Quackle::Move::createPlaceMove(placement, QUACKLE_ALPHABET_PARAMETERS->encode(dotDescription));

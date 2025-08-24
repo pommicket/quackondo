@@ -1,3 +1,8 @@
+/*
+TODO:
+- handle early exit from (pre-)endgame solve
+*/
+
 #include "macondo.h"
 #include "macondobackend.h"
 
@@ -231,6 +236,7 @@ void Macondo::gameChanged(Quackle::Game *game) {
 	m_backend = new MacondoBackend(game, *m_initOptions);
 	connectBackendSignals();
 	m_game = game;
+	clearLog();
 }
 
 void Macondo::connectBackendSignals() {

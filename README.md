@@ -1,10 +1,24 @@
-Quackle   ![Icon](https://github.com/quackle/quackle/raw/master/IconSmall.png)
+Quackondo   ![Icon](Quackondo.png)
 =======
-
-[![CI builds](https://github.com/quackle/quackle/actions/workflows/build.yml/badge.svg)](https://github.com/quackle/quackle/actions/workflows/build.yml)
 
 Crossword game artificial intelligence and analysis tool.
 
+This is a somewhat hacky attempt to integrate the [Macondo](https://github.com/domino14/macondo)
+AI into [Quackle](https://github.com/quackle/quackle/). Macondo can solve endgames and 1-in-the-bag pre-endgames,
+including very complex ones which Quackle's built-in solver can't handle.
+
+To install Quackondo, go to the [Releases](https://github.com/pommicket/Quackondo/releases) page.
+
+To use Macondo inside of Quackle, click on the 'Macondo' tab (next to 'Settings' on the left). You can then check the
+"Use Macondo for 'Simulate'" button, and click simulate (after generating choices) to see which move Macondo prefers.
+You can also solve (pre-)endgames, provided that the tile bag is sufficiently empty by clicking the Solve button in the Macondo tab.
+
+**There may be bugs!** Please report them here: <https://github.com/pommicket/Quackondo/issues>. Ideally include
+an explanation of what you were doing that caused the bug, a GCG file of the game, and the output from Macondo
+(available at the bottom of the 'Macondo' tab).
+
+License
+-----------------
 See LICENSE in this directory.
 
 Building Quackle:
@@ -29,6 +43,7 @@ The Quackle cmake build system uses Qt5 by default.  But you can specify Qt6 by 
 
 	cmake -DQT_VERSION=6 ..
 
+Latest known working version of Macondo: [v0.11.2](https://github.com/domino14/macondo/releases/tag/v0.11.2)
 
 File organization:
 ------------------
@@ -40,7 +55,7 @@ File organization:
 * quackle/data/ - lexicons, strategy files, and alphabet resources for Quackle.
 In this directory is libquackle. Run qmake and then run make in this directory. Then cd to quackle/quackleio/, run qmake, and then run make.
 
-
+Original quackle authors:
 olaughlin@gmail.com
 jasonkatzbrown@gmail.edu
 jfultz@wolfram.com
