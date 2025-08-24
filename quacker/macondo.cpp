@@ -38,7 +38,11 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	boldFont.setWeight(QFont::Bold);
 	m_useMacondo = new QCheckBox(tr("Use Macondo for 'Simulate'"));
 	m_useMacondo->setChecked(settings.value("macondo/useForSimulate", false).toBool());
-	QString defaultExecPath = QCoreApplication::applicationDirPath() + "/macondo/macondo";
+	QString execExt = "";
+	if (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows) {
+		execExt = ".exe";
+	}
+	QString defaultExecPath = QCoreApplication::applicationDirPath() + "/macondo/macondo" + execExt;
 	std::string execPath = settings.value("macondo/execPath", defaultExecPath).toString().toStdString();
 	m_initOptions = std::make_unique<MacondoInitOptions>(execPath);
 	m_backend = new MacondoBackend(game, *m_initOptions);
