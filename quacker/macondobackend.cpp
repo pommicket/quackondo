@@ -424,6 +424,8 @@ const char *MacondoBackend::updateDots(bool anythingNew) {
 
 
 void MacondoBackend::send(const QByteArray &data) {
+	if (data.isEmpty()) return;
+	emit newLogOutput(data);
 	if (isWindows()) {
 		QByteArray copy;
 		copy.replace("\n", "\r\n");
