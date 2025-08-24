@@ -11,9 +11,6 @@
 #include <QThread>
 #include <random>
 
-using std::string;
-using std::vector;
-
 // These "markers" are special parts of Macondo's standard output/error which we're looking for.
 // We can change these whenever Macondo's output format changes.
 static const QByteArray simPlaysStartMarker("Play                Leave         Score    Win%            Equity");
@@ -52,25 +49,25 @@ static bool is_ascii_space(char c) {
 	return strchr(" \r\n\f\t\v", c) != nullptr;
 }
 
-static vector<string> splitLines(const string &s) {
-	vector<string> lines;
+static std::vector<std::string> splitLines(const std::string &s) {
+	std::vector<std::string> lines;
 	size_t i = 0;
 	while (i < s.size()) {
 		size_t end = s.find('\n', i);
-		if (end == string::npos) end = s.size();
+		if (end == std::string::npos) end = s.size();
 		if (end == i) {
 			i++;
 			continue;
 		}
-		string line = s.substr(i, end - i);
+		std::string line = s.substr(i, end - i);
 		lines.push_back(line);
 		i = end + 1;
 	}
 	return lines;
 }
 
-static vector<string> splitWords(const string &s) {
-	vector<string> words;
+static std::vector<std::string> splitWords(const std::string &s) {
+	std::vector<std::string> words;
 	size_t i = 0;
 	while (i < s.size()) {
 		for (; is_ascii_space(s[i]); i++) {
@@ -85,7 +82,7 @@ static vector<string> splitWords(const string &s) {
 	return words;
 }
 
-static string trimLeft(const string &s) {
+static std::string trimLeft(const std::string &s) {
 	int i;
 	for (i = 0; is_ascii_space(s[i]); i++);
 	return s.substr(i);
@@ -132,7 +129,7 @@ void MacondoBackend::solvePreEndgame(const MacondoPreEndgameOptions &options) {
 	m_command = Command::SolvePreEndgame;
 }
 
-static bool parseInt(const string &s, int &value, size_t *len) {
+static bool parseInt(const std::string &s, int &value, size_t *len) {
 	try {
 		value = std::stoi(s, len);
 		return true;
@@ -145,7 +142,7 @@ static bool parseInt(const string &s, int &value, size_t *len) {
 }
 
 
-static int parseScore(const string &scoreString) {
+static int parseScore(const std::string &scoreString) {
 	size_t scoreLen;
 	int score = 0;
 	if (parseInt(scoreString, score, &scoreLen)) {
@@ -157,12 +154,12 @@ static int parseScore(const string &scoreString) {
 	return score;
 }
 
-static double parseWinRate(const string &winString) {
+static double parseWinRate(const std::string &winString) {
 	size_t winLen;
 	double win = 0.0;
 	try {
 		win = std::stod(winString, &winLen);
-		if (winLen < winString.length() && winString.substr(winLen, strlen("±")) != string("±")) {
+		if (winLen < winString.length() && winString.substr(winLen, strlen("±")) != std::string("±")) {
 			qWarning("move win rate of '%s' is invalid", winString.c_str());
 		}
 	} catch (const std::invalid_argument &) {
@@ -171,12 +168,12 @@ static double parseWinRate(const string &winString) {
 	return win / 100;
 }
 
-static double parseEquity(const string &equityString) {
+static double parseEquity(const std::string &equityString) {
 	size_t equityLen;
 	double equity = 0.0;
 	try {
 		equity = std::stod(equityString, &equityLen);
-		if (equityLen < equityString.length() && equityString.substr(equityLen, strlen("±")) != string("±")) {
+		if (equityLen < equityString.length() && equityString.substr(equityLen, strlen("±")) != std::string("±")) {
 			qWarning("move equality of '%s' is invalid", equityString.c_str());
 		}
 	} catch (const std::invalid_argument &) {
@@ -185,47 +182,48 @@ static double parseEquity(const string &equityString) {
 	return equity;
 }
 
-static Quackle::Move createPlaceMove(const string &placement, const string &prettyTiles) {
-	string dotDescription;
-	for (size_t i = 0; i < prettyTiles.size();) {
-		size_t j = prettyTiles.find("(", i);
-		if (j == string::npos) {
-			dotDescription += prettyTiles.substr(i);
+Quackle::Move MacondoBackend::createPlaceMove(const std::string &placement, const std::string &tiles) {
+	std::string dotDescription;
+	// convert pretty tiles to dot description if necessary
+	for (size_t i = 0; i < tiles.size();) {
+		size_t j = tiles.find('(', i);
+		if (j == std::string::npos) {
+			dotDescription += tiles.substr(i);
 			break;
 		}
-		dotDescription += prettyTiles.substr(i, j) + ".";
-		i = prettyTiles.find(")", j);
-		if (i == string::npos) throw "mismatched parentheses";
+		dotDescription += tiles.substr(i, j) + ".";
+		i = tiles.find(')', j);
+		if (i == std::string::npos) throw "mismatched parentheses";
 		i++;
 	}
 	auto move = Quackle::Move::createPlaceMove(placement, QUACKLE_ALPHABET_PARAMETERS->encode(dotDescription));
-	move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(prettyTiles));
+	move.setPrettyTiles(m_game->currentPosition().board().prettyTilesOfMove(move));
 	return move;
 }
 
 // parse move from Macondo sim
-static Quackle::Move extractSimMove(const string &play) {
-	vector<string> words = splitWords(play);
+Quackle::Move MacondoBackend::extractSimMove(const std::string &play) {
+	std::vector<std::string> words = splitWords(play);
 	bool plays7 = words.size() == 5; // bingo/exchange 7 => no leave in output
 	if (!plays7 && words.size() != 6) {
 		throw "want 6 or 7 space-separated parts in play";
 	}
-	if (play.find("(Pass)") != string::npos) {
+	if (play.find("(Pass)") != std::string::npos) {
 		if (!plays7) throw "want 6 space-separated parts in pass";
-		const string &winString = words[3];
-		const string &equityString = words[4];
+		const std::string &winString = words[3];
+		const std::string &equityString = words[4];
 		Quackle::Move move = Quackle::Move::createPassMove();
 		move.win = parseWinRate(winString);
 		move.equity = parseEquity(equityString);
 		return move;
-	} else if (play.find("(exch ") != string::npos) {
+	} else if (play.find("(exch ") != std::string::npos) {
 		// exchange
-		string tiles = words[1];
+		std::string tiles = words[1];
 		if (tiles[tiles.length() - 1] != ')')
 			throw "expected ) following (exch";
 		tiles.pop_back();
-		const string &winString = words[3 + !plays7];
-		const string &equityString = words[4 + !plays7];
+		const std::string &winString = words[3 + !plays7];
+		const std::string &equityString = words[4 + !plays7];
 		Quackle::Move move = Quackle::Move::createExchangeMove(QUACKLE_ALPHABET_PARAMETERS->encode(tiles), false);
 		move.setPrettyTiles(QUACKLE_ALPHABET_PARAMETERS->encode(tiles));
 		move.win = parseWinRate(winString);
@@ -233,12 +231,12 @@ static Quackle::Move extractSimMove(const string &play) {
 		return move;
 	} else {
 		// normal play
-		const string &placement = words[0];
-		const string &prettyTiles = words[1];
-		const string &scoreString = words[2 + !plays7];
-		const string &winString = words[3 + !plays7];
-		const string &equityString = words[4 + !plays7];
-		Quackle::Move move = createPlaceMove(placement, prettyTiles);
+		const std::string &placement = words[0];
+		const std::string &tiles = words[1];
+		const std::string &scoreString = words[2 + !plays7];
+		const std::string &winString = words[3 + !plays7];
+		const std::string &equityString = words[4 + !plays7];
+		Quackle::Move move = createPlaceMove(placement, tiles);
 		move.score = parseScore(scoreString);
 		move.win = parseWinRate(winString);
 		move.equity = parseEquity(equityString);
@@ -248,17 +246,17 @@ static Quackle::Move extractSimMove(const string &play) {
 }
 
 // extract Quackle::Move from Macondo's sim output
-static Quackle::MoveList extractSimMoves(QByteArray &processOutput) {
+Quackle::MoveList MacondoBackend::extractSimMoves(QByteArray &processOutput) {
 	Quackle::MoveList moves;
 	int start = processOutput.indexOf(simPlaysStartMarker) + simPlaysStartMarker.length();
 	if (start < 0) return moves;
 	int end = processOutput.indexOf(simPlaysEndMarker, start);
 	if (end < 0) return moves;
-	string plays(processOutput.constData() + start, end - start);
+	std::string plays(processOutput.constData() + start, end - start);
 	processOutput.remove(0, end);
 	plays = trimLeft(plays);
-	for (size_t i = 0, next; (next = plays.find("\n", i)) != string::npos; i = next + 1) {
-		string play = plays.substr(i, next - i);
+	for (size_t i = 0, next; (next = plays.find("\n", i)) != std::string::npos; i = next + 1) {
+		std::string play = plays.substr(i, next - i);
 		try {
 			moves.push_back(extractSimMove(play));
 		} catch (const char *s) {
@@ -268,7 +266,7 @@ static Quackle::MoveList extractSimMoves(QByteArray &processOutput) {
 	return moves;
 }
 
-static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
+bool MacondoBackend::extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	const QByteArray &spreadDiffMarker = processOutput.contains(endgameSpreadDiffMarker1)
 		? endgameSpreadDiffMarker1 : endgameSpreadDiffMarker2;
 	int spreadDiffMarkerIdx = processOutput.indexOf(spreadDiffMarker);
@@ -286,7 +284,7 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	int spreadDiffEnd = processOutput.indexOf("\n", spreadDiffStart);
 	if (spreadDiffEnd < 0) return false;
 	int spreadDiff = -999;
-	string spreadDiffStr(processOutput.data() + spreadDiffStart, spreadDiffEnd - spreadDiffStart);
+	std::string spreadDiffStr(processOutput.data() + spreadDiffStart, spreadDiffEnd - spreadDiffStart);
 	if (!parseInt(spreadDiffStr, spreadDiff, nullptr)) {
 		qWarning("bad sequence spread: %s", spreadDiffStr.c_str());
 	}
@@ -302,15 +300,15 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	int seqStart = processOutput.indexOf(endgameBestSeqMarker);
 	if (seqStart < 0) return false;
 	seqStart += endgameBestSeqMarker.length();
-	string sequenceStr(processOutput.data() + seqStart, processOutput.size() - seqStart);
-	vector<string> sequence = splitLines(sequenceStr);
-	const string &firstMove = sequence[0];
-	vector<string> moveWords = splitWords(firstMove);
+	std::string sequenceStr(processOutput.data() + seqStart, processOutput.size() - seqStart);
+	std::vector<std::string> sequence = splitLines(sequenceStr);
+	const std::string &firstMove = sequence[0];
+	std::vector<std::string> moveWords = splitWords(firstMove);
 	bool ok = false;
 	if (moveWords.size() == 4) {
-		const string &placement = moveWords[1];
-		const string &prettyTiles = moveWords[2];
-		const string &scoreInParentheses = moveWords[3];
+		const std::string &placement = moveWords[1];
+		const std::string &prettyTiles = moveWords[2];
+		const std::string &scoreInParentheses = moveWords[3];
 		move = createPlaceMove(placement, prettyTiles);
 		int score = 0;
 		bool scoreIsValid = scoreInParentheses[0] == '(' && scoreInParentheses.back() == ')';
@@ -347,20 +345,20 @@ static bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move) {
 	return ok;
 }
 
-static Quackle::Move extractPreEndgameMove(const string &moveStr) {
+Quackle::Move MacondoBackend::extractPreEndgameMove(const std::string &moveStr) {
 	size_t outcomesStart = std::min(moveStr.find("👍"), std::min(moveStr.find("👎"), moveStr.find("🤝")));
-	if (outcomesStart == string::npos) {
+	if (outcomesStart == std::string::npos) {
 		throw "expected 👍/👎/🤝 to mark start of outcomes";
 	}
-	string outcomes = moveStr.substr(outcomesStart);
-	vector<string> words = splitWords(moveStr.substr(0, outcomesStart));
+	std::string outcomes = moveStr.substr(outcomesStart);
+	std::vector<std::string> words = splitWords(moveStr.substr(0, outcomesStart));
 	if (words.size() < 3) throw "expected at least 3 space-separated parts before outcome";
 	Quackle::Move move;
 	if (words[0] == "(Pass)") {
 		words.erase(words.begin());
 		move = Quackle::Move::createPassMove();
 	} else if (words[0] == "(exch") { // probably Macondo will never be able to solve 7-in-the-bag but who knows
-		string tiles = words[1];
+		std::string tiles = words[1];
 		if (tiles[tiles.length() - 1] != ')')
 			throw "expected ) following (exch";
 		tiles.pop_back();
@@ -381,7 +379,7 @@ static Quackle::Move extractPreEndgameMove(const string &moveStr) {
 	return move;
 }
 
-static Quackle::MoveList extractPreEndgameMoves(const QByteArray &processOutput) {
+Quackle::MoveList MacondoBackend::extractPreEndgameMoves(const QByteArray &processOutput) {
 	Quackle::MoveList list;
 	int startMarkerIdx = processOutput.indexOf(preEndgamePlaysStartMarker);
 	if (startMarkerIdx == -1) return list;
@@ -389,12 +387,12 @@ static Quackle::MoveList extractPreEndgameMoves(const QByteArray &processOutput)
 	if (startIdx == 0) return list;
 	int endIdx = processOutput.indexOf(preEndgamePlaysEndMarker, startIdx);
 	if (endIdx == -1) return list;
-	vector<string> moves = splitLines(string(processOutput.constData() + startIdx, endIdx - startIdx));
-	for (const string &moveStr: moves) {
+	std::vector<std::string> moves = splitLines(std::string(processOutput.constData() + startIdx, endIdx - startIdx));
+	for (const std::string &moveStr: moves) {
 		try {
 			list.push_back(extractPreEndgameMove(moveStr));
 		} catch (const char *err) {
-			fprintf(stderr, "WARNING: bad syntax in pre-endgame move string (%s): %s",
+			fprintf(stderr, "WARNING: bad syntax in pre-endgame move std::string (%s): %s",
 				err, moveStr.c_str());
 		}
 	}
@@ -421,7 +419,7 @@ void MacondoBackend::timer() {
 		data = m_process->readAllStandardOutput();
 		anyNewOutput |= data.size() != 0;
 		m_processOutput.append(data);
-		if (false) {
+		if (true) {
 			// print Macondo stdout
 			printf("%.*s",data.size(), data.constData());
 		}
@@ -465,7 +463,7 @@ void MacondoBackend::timer() {
 			// extract # of plays Macondo will analyze
 			i += preEndgameStartingMarker.length();
 			m_processStderr = QByteArray(m_processStderr.constData() + i, m_processStderr.size() - i);
-			string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
+			std::string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
 			int numPlays = 0;
 			parseInt(numPlaysStr, numPlays, nullptr);
 			m_preEndgamePlaysToAnalyze = numPlays;
@@ -479,7 +477,7 @@ void MacondoBackend::timer() {
 			if (i != -1 && m_processStderr.indexOf('\n', i) != -1) {
 				i += preEndgameProgressMarker.length();
 				m_processStderr = QByteArray(m_processStderr.constData() + i, m_processStderr.size() - i);
-				string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
+				std::string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
 				parseInt(numPlaysStr, m_preEndgamePlaysAnalyzed, nullptr);
 			}
 			std::stringstream message;
@@ -542,7 +540,7 @@ void MacondoBackend::timer() {
 	}
 }
 
-static string moveToString(const Quackle::Move &move) {
+static std::string moveToString(const Quackle::Move &move) {
 	switch (move.action) {
 	case Quackle::Move::Action::Pass:
 		return "pass";
@@ -567,7 +565,7 @@ void MacondoBackend::processStarted() {
 			std::stringstream commands;
 			// add generated moves to Macondo
 			for (const Quackle::Move &move: m_movesToLoad) {
-				string moveStr = moveToString(move);
+				std::string moveStr = moveToString(move);
 				if (!moveStr.empty()) {
 					commands << "add ";
 					commands << moveStr;
@@ -585,7 +583,7 @@ void MacondoBackend::processStarted() {
 			std::stringstream command;
 			command << "peg ";
 			for (const Quackle::Move &move: m_preEndgameOptions.movesToAnalyze) {
-				string moveStr = moveToString(move);
+				std::string moveStr = moveToString(move);
 				if (!moveStr.empty()) {
 					command << "-only-solve \"" << moveStr << "\" ";
 				}

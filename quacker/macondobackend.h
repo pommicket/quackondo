@@ -55,6 +55,12 @@ private slots:
 	void processFinished(int, QProcess::ExitStatus);
 	void timer();
 private:
+	Quackle::Move createPlaceMove(const std::string &placement, const std::string &tiles);
+	Quackle::Move extractSimMove(const std::string &play);
+	Quackle::MoveList extractSimMoves(QByteArray &processOutput);
+	bool extractEndgameMove(QByteArray &processOutput, Quackle::Move &move);
+	Quackle::Move extractPreEndgameMove(const std::string &moveStr);
+	Quackle::MoveList extractPreEndgameMoves(const QByteArray &processOutput);
 	enum class Command {
 		None,
 		Simulate,
