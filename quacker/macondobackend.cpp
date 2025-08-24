@@ -88,6 +88,10 @@ static std::string trimLeft(const std::string &s) {
 	return s.substr(i);
 }
 
+// avoid annoying ambiguous template parameter issues from std::min
+static size_t minSize(size_t a, size_t b) {
+	return std::min(a, b);
+}
 
 MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &options): QObject() {
 	m_execPath = options.execPath;
@@ -349,7 +353,7 @@ bool MacondoBackend::extractEndgameMove(QByteArray &processOutput, Quackle::Move
 }
 
 Quackle::Move MacondoBackend::extractPreEndgameMove(const std::string &moveStr) {
-	size_t outcomesStart = std::min(moveStr.find("👍"), std::min(moveStr.find("👎"), moveStr.find("🤝")));
+	size_t outcomesStart = minSize(moveStr.find("👍"), minSize(moveStr.find("👎"), moveStr.find("🤝")));
 	if (outcomesStart == std::string::npos) {
 		throw "expected 👍/👎/🤝 to mark start of outcomes";
 	}
@@ -468,7 +472,7 @@ void MacondoBackend::timer() {
 			// extract # of plays Macondo will analyze
 			i += preEndgameStartingMarker.length();
 			m_processStderr = QByteArray(m_processStderr.constData() + i, m_processStderr.size() - i);
-			std::string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
+			std::string numPlaysStr(m_processStderr.constData(), minSize(32, m_processStderr.size()));
 			int numPlays = 0;
 			parseInt(numPlaysStr, numPlays, nullptr);
 			m_preEndgamePlaysToAnalyze = numPlays;
@@ -482,7 +486,7 @@ void MacondoBackend::timer() {
 			if (i != -1 && m_processStderr.indexOf('\n', i) != -1) {
 				i += preEndgameProgressMarker.length();
 				m_processStderr = QByteArray(m_processStderr.constData() + i, m_processStderr.size() - i);
-				std::string numPlaysStr(m_processStderr.constData(), std::min(32, m_processStderr.size()));
+				std::string numPlaysStr(m_processStderr.constData(), minSize(32, m_processStderr.size()));
 				parseInt(numPlaysStr, m_preEndgamePlaysAnalyzed, nullptr);
 			}
 			std::stringstream message;
@@ -515,7 +519,7 @@ void MacondoBackend::timer() {
 			if (plyMarkerIdx != -1) {
 				int plyStart = plyMarkerIdx + endgamePlyMarker.length();
 				std::string plyStr(m_processStderr.constData() + plyStart,
-					std::min(m_processStderr.length() - plyStart, 30));
+					minSize(m_processStderr.length() - plyStart, 30));
 				parseInt(plyStr, ply, nullptr);
 			}
 			// extract current best sequence
