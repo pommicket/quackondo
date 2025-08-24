@@ -10,6 +10,7 @@
 #include <QTextStream>
 #include <QThread>
 #include <random>
+#include <climits>
 
 // These "markers" are special parts of Macondo's standard output/error which we're looking for.
 // We can change these whenever Macondo's output format changes.

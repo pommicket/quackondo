@@ -143,7 +143,7 @@ void Macondo::setExecPath(const std::string &path) {
 
 void Macondo::chooseExecPath() {
 	QString filter;
-	if (QOperatingSystemVersion::current().type() == QOperatingSystemVersion::Windows) {
+	if (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows) {
 		filter = tr("Executable files (*.exe)");
 	}
 	QString path = QFileDialog::getOpenFileName(this, tr("Select Macondo executable..."), QString(), filter);
