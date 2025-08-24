@@ -22,6 +22,10 @@ TODO:
 
 #include "customqsettings.h"
 
+static bool isWindows() {
+	return QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows;
+}
+
 // Convenience wrapper around an hbox containing a label and another widget.
 class LabelLayout: public QHBoxLayout {
 public:
@@ -39,7 +43,7 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	m_useMacondo = new QCheckBox(tr("Use Macondo for 'Simulate'"));
 	m_useMacondo->setChecked(settings.value("macondo/useForSimulate", false).toBool());
 	QString execExt = "";
-	if (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows) {
+	if (isWindows()) {
 		execExt = ".exe";
 	}
 	QString defaultExecPath = QCoreApplication::applicationDirPath() + "/macondo/macondo" + execExt;
@@ -147,7 +151,7 @@ void Macondo::setExecPath(const std::string &path) {
 
 void Macondo::chooseExecPath() {
 	QString filter;
-	if (QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows) {
+	if (isWindows()) {
 		filter = tr("Executable files (*.exe)");
 	}
 	QString path = QFileDialog::getOpenFileName(this, tr("Select Macondo executable..."), QString(), filter);

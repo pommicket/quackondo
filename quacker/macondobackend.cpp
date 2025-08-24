@@ -5,12 +5,17 @@
 #include "game.h"
 
 #include <QFile>
+#include <QOperatingSystemVersion>
 #include <QProcess>
 #include <QTimer>
 #include <QTextStream>
 #include <QThread>
 #include <random>
 #include <climits>
+
+static bool isWindows() {
+	return QOperatingSystemVersion::currentType() == QOperatingSystemVersion::Windows;
+}
 
 // These "markers" are special parts of Macondo's standard output/error which we're looking for.
 // We can change these whenever Macondo's output format changes.
@@ -417,17 +422,40 @@ const char *MacondoBackend::updateDots(bool anythingNew) {
 	return dots;
 }
 
+
+void MacondoBackend::send(const QByteArray &data) {
+	if (isWindows()) {
+		QByteArray copy;
+		copy.replace("\n", "\r\n");
+		m_process->write(copy);
+	} else {
+		m_process->write(data);
+	}
+}
+
+QByteArray MacondoBackend::receiveStdout() {
+	QByteArray data = m_process->readAllStandardOutput();
+	data.replace("\r\n", "\n");
+	return data;
+}
+
+QByteArray MacondoBackend::receiveStderr() {
+	QByteArray data = m_process->readAllStandardError();
+	data.replace("\r\n", "\n");
+	return data;
+}
+
 void MacondoBackend::timer() {
 	bool anyNewOutput = false;
 	if (m_process) {
-		QByteArray data = m_process->readAllStandardError();
+		QByteArray data = receiveStderr();
 		if (data.size()) {
 			anyNewOutput = true;
 			emit newLogOutput(data);
 		}
 		//fprintf(stderr,"%.*s",data.size(), data.constData());
 		m_processStderr.append(data);
-		data = m_process->readAllStandardOutput();
+		data = receiveStdout();
 		m_processOutput.append(data);
 		if (data.size()) {
 			anyNewOutput = true;
@@ -441,7 +469,7 @@ void MacondoBackend::timer() {
 		break;
 	case Command::Simulate:
 		if (m_runningSimulation) {
-			m_process->write("sim show\n");
+			send("sim show\n");
 		}
 		{
 			Quackle::MoveList moves = extractSimMoves(m_processOutput);
@@ -503,7 +531,7 @@ void MacondoBackend::timer() {
 			removeTempGCG();
 			// give Macondo a bit more time to write out the full sequence
 			QThread::msleep(60);
-			m_processOutput.append(m_process->readAllStandardOutput());
+			m_processOutput.append(receiveStdout());
 			Quackle::Move move;
 			if (extractEndgameMove(m_processOutput, move)) {
 				Quackle::MoveList list;
@@ -584,7 +612,7 @@ void MacondoBackend::processStarted() {
 			}
 			
 			commands << "sim\n";
-			m_process->write(commands.str().c_str());
+			send(commands.str().c_str());
 			m_runningSimulation = true;
 		}
 		break;
@@ -607,7 +635,7 @@ void MacondoBackend::processStarted() {
 				command << "-opprack " << m_preEndgameOptions.opponentRack << " ";
 			}
 			command << "\n";
-			m_process->write(command.str().c_str());
+			send(command.str().c_str());
 		}
 		break;
 	case Command::SolveEndgame:
@@ -618,7 +646,7 @@ void MacondoBackend::processStarted() {
 			command << "-prevent-slowroll " << (m_endgameOptions.preventSlowRoll ? "true" : "false") << " ";
 			command << "-plies " << m_endgameOptions.maxPlies << " ";
 			command << "\n";
-			m_process->write(command.str().c_str());
+			send(command.str().c_str());
 		}
 		break;
 	}
@@ -654,7 +682,7 @@ void MacondoBackend::loadGCG() {
 	commands << "set lexicon " << lexicon << "\n"
 		<< "load " << filename << "\n"
 		<< "turn " << getPlyNumber(m_game->currentPosition()) << "\n";
-	m_process->write(commands.str().c_str());
+	send(commands.str().c_str());
 }
 
 void MacondoBackend::killProcess() {

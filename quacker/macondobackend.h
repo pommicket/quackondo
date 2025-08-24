@@ -56,6 +56,9 @@ private slots:
 	void processFinished(int, QProcess::ExitStatus);
 	void timer();
 private:
+	void send(const QByteArray &);
+	QByteArray receiveStdout();
+	QByteArray receiveStderr();
 	Quackle::Move createPlaceMove(const std::string &placement, const std::string &tiles);
 	Quackle::Move extractSimMove(const std::string &play);
 	Quackle::MoveList extractSimMoves(QByteArray &processOutput);
