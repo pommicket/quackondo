@@ -10,6 +10,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QOperatingSystemVersion>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -45,6 +46,8 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	connect(m_execPath, SIGNAL(editingFinished()), this, SLOT(execPathChanged()));
 	m_solve = new QPushButton(tr("Solve"));
 	m_solve->setDisabled(true);
+	m_log = new QPlainTextEdit;
+	//m_log->setReadOnly(true);
 
 	QHBoxLayout *execPathLayout = new QHBoxLayout;
 	execPathLayout->addWidget(execPathLabel);
@@ -105,6 +108,7 @@ Macondo::Macondo(Quackle::Game *game) : View() {
 	layout->addWidget(pegBox);
 	layout->addWidget(endgameBox);
 	layout->addWidget(m_solve);
+	layout->addWidget(m_log, 1);
 	connect(m_solve, SIGNAL(clicked()), this, SLOT(solve()));
 }
 
@@ -173,6 +177,7 @@ bool Macondo::simulate() {
 	}
 	if (isRunning())
 		stop();
+	clearLog();
 	MacondoSimulateOptions options;
 	return m_backend->simulate(options, m_movesFromKibitzer);
 }
@@ -189,6 +194,7 @@ void Macondo::solve() {
 	if (wasSolving) {
 		emit stoppedSolver();
 	} else {
+		clearLog();
 		if (m_tilesUnseen > 7) {
 			MacondoPreEndgameOptions options;
 			options.endgamePlies = m_preEndgameMaxPlies->value();
@@ -230,6 +236,7 @@ void Macondo::gameChanged(Quackle::Game *game) {
 void Macondo::connectBackendSignals() {
 	connect(m_backend, SIGNAL(gotMoves(const Quackle::MoveList &)), this, SLOT(gotMoves(const Quackle::MoveList &)));
 	connect(m_backend, SIGNAL(statusMessage(const QString &)), this, SIGNAL(statusMessage(const QString &)));
+	connect(m_backend, SIGNAL(newLogOutput(const QByteArray &)), this, SLOT(newLogOutput(const QByteArray &)));
 }
 
 void Macondo::stop() {
@@ -275,4 +282,47 @@ void Macondo::updateSolveButton() {
 		m_solve->setText(tr("Solve"));
 		m_solve->setDisabled(true);
 	}
+}
+
+void Macondo::clearLog() {
+	m_log->clear();
+	m_logANSIState = 0;
+}
+
+void Macondo::newLogOutput(const QByteArray &text) {
+	// annoying stuff to handle incomplete UTF-8 at end of text
+	QByteArray logContents = m_logPartialUtf8;
+	logContents.append(text);
+	size_t completeUtf8Len = 0;
+	while (completeUtf8Len < logContents.length()) {
+		uint8_t firstByte = logContents.at(completeUtf8Len);
+		size_t codepointLen = (firstByte & 0xe0) == 0xc0 ? 2
+			: (firstByte & 0xf0) == 0xe0 ? 3 
+			: (firstByte & 0xf8) == 0xf0 ? 4 : 1;
+		if (completeUtf8Len + codepointLen > logContents.length()) break;
+		completeUtf8Len += codepointLen;
+	}
+	m_logPartialUtf8 = QByteArray(text.constData() + completeUtf8Len, text.length() - completeUtf8Len);
+	// remove ANSI escape sequences (color/formatting codes)
+	std::string filteredText;
+	for (size_t i = 0; i < completeUtf8Len; i++) {
+		uint8_t byte = text.at(i);
+		if (m_logANSIState == 0 && byte == 0x1b) {
+			m_logANSIState = 1;
+		} else if (m_logANSIState == 1 && byte == '[') {
+			m_logANSIState = 2;
+		} else if (m_logANSIState == 2 && byte >= 0x20 && byte < 0x40) {
+			// continuation of ANSI escape sequence
+		} else if (m_logANSIState == 2 && byte >= 0x40 && byte < 0x80) {
+			// terminator for ANSI escape sequence
+			m_logANSIState = 0;
+		} else {
+			m_logANSIState = 0;
+			filteredText.push_back(byte);
+		}
+	}
+	m_log->moveCursor(QTextCursor::MoveOperation::End);
+	m_log->insertPlainText(QString::fromStdString(filteredText));
+	m_log->moveCursor(QTextCursor::MoveOperation::End);
+	m_log->centerCursor();
 }

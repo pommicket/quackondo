@@ -4,13 +4,14 @@
 #include "view.h"
 #include "game.h"
 
-class QCheckBox;
-class QPushButton;
-class QLineEdit;
-class QSpinBox;
 class MacondoBackend;
 struct MacondoInitOptions;
 class MoveBox;
+class QCheckBox;
+class QPushButton;
+class QLineEdit;
+class QPlainTextEdit;
+class QSpinBox;
 
 class Macondo : public View {
 Q_OBJECT
@@ -39,10 +40,12 @@ public slots:
 	void gameChanged(Quackle::Game *game) override;
 	void positionChanged(const Quackle::GamePosition *position) override;
 private slots:
+	void newLogOutput(const QByteArray &text);
 	void gotMoves(const Quackle::MoveList &moves);
 	void execPathChanged();
 	void chooseExecPath();
 private:
+	void clearLog();
 	void setExecPath(const std::string &);
 	void connectBackendSignals();
 	bool checkExecPath();
@@ -66,11 +69,14 @@ private:
 	QSpinBox *m_preEndgameMaxPlies;
 
 	QPushButton *m_solve;
+	QPlainTextEdit *m_log;
+	QByteArray m_logPartialUtf8;
 	Quackle::Game *m_game;
 	MacondoBackend *m_backend;
 	Quackle::MoveList m_movesFromKibitzer;
 	int m_tilesUnseen = 93;
 	int m_viewingPlyNumber = 0;
+	int m_logANSIState = 0;
 	bool m_anyUpdates = false;
 	bool m_isSolving = false;
 	std::unique_ptr<MacondoInitOptions> m_initOptions;

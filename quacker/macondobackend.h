@@ -50,6 +50,7 @@ public:
 signals:
 	void gotMoves(const Quackle::MoveList &moves);
 	void statusMessage(const QString &message);
+	void newLogOutput(const QByteArray &log);
 private slots:
 	void processStarted();
 	void processFinished(int, QProcess::ExitStatus);

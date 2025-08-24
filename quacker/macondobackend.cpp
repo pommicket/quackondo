@@ -413,15 +413,17 @@ void MacondoBackend::timer() {
 	bool anyNewOutput = false;
 	if (m_process) {
 		QByteArray data = m_process->readAllStandardError();
-		anyNewOutput |= data.size() != 0;
-		fprintf(stderr,"%.*s",data.size(), data.constData());
+		if (data.size()) {
+			anyNewOutput = true;
+			emit newLogOutput(data);
+		}
+		//fprintf(stderr,"%.*s",data.size(), data.constData());
 		m_processStderr.append(data);
 		data = m_process->readAllStandardOutput();
-		anyNewOutput |= data.size() != 0;
 		m_processOutput.append(data);
-		if (true) {
-			// print Macondo stdout
-			printf("%.*s",data.size(), data.constData());
+		if (data.size()) {
+			anyNewOutput = true;
+			emit newLogOutput(data);
 		}
 		fflush(stdout);
 	}
