@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <QTextStream>
 #include <QThread>
+#include <QCoreApplication>
 #include <random>
 #include <climits>
 
@@ -115,7 +116,7 @@ bool MacondoBackend::startProcess(Command command) {
 	QStringList args;
 	connect(m_process, SIGNAL(started()), this, SLOT(processStarted()));
 	connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
-	m_process->start(m_execPath.c_str(), args, QIODevice::Unbuffered | QIODevice::Text | QIODevice::ReadWrite);
+	m_process->start(m_execPath.c_str(), args, QIODevice::Text | QIODevice::ReadWrite);
 	return true;
 }
 
@@ -654,8 +655,8 @@ void MacondoBackend::loadGCG() {
 	std::uniform_int_distribution<int> distribution(0, 25);
 	removeTempGCG();
 	// save game file with random name
-	char filename[] = "tmpGameXXXXXXXXXXXX.gcg";
-	for (int i = 0; filename[i]; i++) {
+	std::string filename = (QCoreApplication::applicationDirPath() + "/tmpGameXXXXXXXXXXXX.gcg").toStdString();
+	for (size_t i = 0; i < filename.length(); i++) {
 		if (filename[i] == 'X') {
 			filename[i] = distribution(rand) + 'A';
 		}
@@ -663,14 +664,14 @@ void MacondoBackend::loadGCG() {
 	m_tempGCG = filename;
 	QuackleIO::GCGIO gcg;
 	{
-		QFile file(filename);
+		QFile file(filename.c_str());
 		file.open(QIODevice::WriteOnly | QIODevice::Text);
 		QTextStream fileStream(&file);
 		gcg.write(*m_game, fileStream);
 	}
 	std::stringstream commands;
 	commands << "set lexicon " << lexicon << "\n"
-		<< "load " << filename << "\n"
+		<< "load '" << filename << "'\n"
 		<< "turn " << getPlyNumber(m_game->currentPosition()) << "\n";
 	send(commands.str().c_str());
 }
