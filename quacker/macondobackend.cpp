@@ -108,35 +108,33 @@ MacondoBackend::MacondoBackend(Quackle::Game *game, const MacondoInitOptions &op
 	m_updateTimer->start();
 }
 
-bool MacondoBackend::startProcess() {
+bool MacondoBackend::startProcess(Command command) {
 	if (m_process) return true;
+	m_command = command;
 	m_process = new QProcess(this);
 	QStringList args;
-	m_process->start(m_execPath.c_str(), args);
 	connect(m_process, SIGNAL(started()), this, SLOT(processStarted()));
 	connect(m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(processFinished(int, QProcess::ExitStatus)));
+	m_process->start(m_execPath.c_str(), args, QIODevice::Unbuffered | QIODevice::Text | QIODevice::ReadWrite);
 	return true;
 }
 
 bool MacondoBackend::simulate(const MacondoSimulateOptions &options, const Quackle::MoveList &moves) {
-	if (!startProcess())
-		return false;
 	m_movesToLoad = moves;
-	m_command = Command::Simulate;
+	if (!startProcess(Command::Simulate))
+		return false;
 	return true;
 }
 
 void MacondoBackend::solveEndgame(const MacondoEndgameOptions &options) {
 	m_endgameOptions = options;
-	startProcess();
-	m_command = Command::SolveEndgame;
+	startProcess(Command::SolveEndgame);
 }
 
 void MacondoBackend::solvePreEndgame(const MacondoPreEndgameOptions &options) {
 	m_preEndgamePlaysToAnalyze = 0;
 	m_preEndgameOptions = options;
-	startProcess();
-	m_command = Command::SolvePreEndgame;
+	startProcess(Command::SolvePreEndgame);
 }
 
 static bool parseInt(const std::string &s, int &value, size_t *len) {
@@ -426,25 +424,15 @@ const char *MacondoBackend::updateDots(bool anythingNew) {
 void MacondoBackend::send(const QByteArray &data) {
 	if (data.isEmpty()) return;
 	emit newLogOutput(data);
-	if (isWindows()) {
-		QByteArray copy;
-		copy.replace("\n", "\r\n");
-		m_process->write(copy);
-	} else {
-		m_process->write(data);
-	}
+	m_process->write(data);
 }
 
 QByteArray MacondoBackend::receiveStdout() {
-	QByteArray data = m_process->readAllStandardOutput();
-	data.replace("\r\n", "\n");
-	return data;
+	return m_process->readAllStandardOutput();
 }
 
 QByteArray MacondoBackend::receiveStderr() {
-	QByteArray data = m_process->readAllStandardError();
-	data.replace("\r\n", "\n");
-	return data;
+	return m_process->readAllStandardError();
 }
 
 void MacondoBackend::timer() {

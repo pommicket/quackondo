@@ -71,7 +71,7 @@ private:
 		SolvePreEndgame,
 		SolveEndgame,
 	};
-	bool startProcess();
+	bool startProcess(Command command);
 	void loadGCG();
 	void killProcess();
 	void removeTempGCG();
