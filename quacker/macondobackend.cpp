@@ -4,13 +4,13 @@
 #include "quackleio/gcgio.h"
 #include "game.h"
 
+#include <QDir>
 #include <QFile>
 #include <QOperatingSystemVersion>
 #include <QProcess>
 #include <QTimer>
 #include <QTextStream>
 #include <QThread>
-#include <QCoreApplication>
 #include <random>
 #include <climits>
 
@@ -655,7 +655,7 @@ void MacondoBackend::loadGCG() {
 	std::uniform_int_distribution<int> distribution(0, 25);
 	removeTempGCG();
 	// save game file with random name
-	std::string filename = (QCoreApplication::applicationDirPath() + "/tmpGameXXXXXXXXXXXX.gcg").toStdString();
+	std::string filename = (QDir::tempPath() + "/tmpGameXXXXXXXXXXXX.gcg").toStdString();
 	for (size_t i = 0; i < filename.length(); i++) {
 		if (filename[i] == 'X') {
 			filename[i] = distribution(rand) + 'A';
