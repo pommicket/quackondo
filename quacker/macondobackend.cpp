@@ -134,6 +134,7 @@ void MacondoBackend::solveEndgame(const MacondoEndgameOptions &options) {
 
 void MacondoBackend::solvePreEndgame(const MacondoPreEndgameOptions &options) {
 	m_preEndgamePlaysToAnalyze = 0;
+	m_preEndgamePlaysAnalyzed = 0;
 	m_preEndgameOptions = options;
 	startProcess(Command::SolvePreEndgame);
 }
