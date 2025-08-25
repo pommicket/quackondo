@@ -2,17 +2,17 @@
 ; For Inno Setup 5.1
 
 [Setup]
-AppName=Quackle
-AppVerName=Quackle 1.0.4
+AppName=Quackondo
+AppVerName=Quackondo 1.0.4
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 DefaultDirName={commonpf}\Quackondo
-DefaultGroupName=Quackle
+DefaultGroupName=Quackondo
 ChangesAssociations=yes
 UninstallDisplayIcon={app}\Quackle.exe
 
 [Icons]
-Name: "{group}\Quackle 1.0.4"; Filename: "{app}\Quackle.exe"; WorkingDir: "{app}"
+Name: "{group}\Quackondo 1.0.4"; Filename: "{app}\Quackle.exe"; WorkingDir: "{app}"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Quackle.org"
