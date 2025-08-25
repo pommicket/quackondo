@@ -9,6 +9,8 @@ including very complex ones which Quackle's built-in solver can't handle.
 
 To install Quackondo, go to the [Releases](https://github.com/pommicket/Quackondo/releases) page.
 
+Video guide: https://www.youtube.com/watch?v=lNZnWYDTMXU
+
 To use Macondo inside of Quackle, click on the 'Macondo' tab (next to 'Settings' on the left). You can then check the
 "Use Macondo for 'Simulate'" button, and click simulate (after generating choices) to see which move Macondo prefers.
 You can also solve (pre-)endgames, provided that the tile bag is sufficiently empty by clicking the Solve button in the Macondo tab.
