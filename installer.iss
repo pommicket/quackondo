@@ -39,6 +39,7 @@ Source: "quacker\build\RelWithDebInfo\*.dll"; DestDir: "{app}"
 Source: "quacker\build\RelWithDebInfo\imageformats\*"; DestDir: "{app}\imageformats"
 Source: "quacker\build\RelWithDebInfo\platforms\*"; DestDir: "{app}\platforms"
 Source: "quacker\build\RelWithDebInfo\styles\*"; DestDir: "{app}\styles"
+Source: "quacker\build\RelWithDebInfo\macondo\*"; DestDir: "{app}\macondo"; Flags: recursesubdirs
 
 
 Source: "data\themes\*"; DestDir: "{app}\data\themes"
