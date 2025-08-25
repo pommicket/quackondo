@@ -45,6 +45,11 @@ The Quackle cmake build system uses Qt5 by default.  But you can specify Qt6 by 
 
 Latest known working version of Macondo: [v0.11.2](https://github.com/domino14/macondo/releases/tag/v0.11.2)
 
+Note for Windows: As of v0.11.2, unmodified Macondo won't work with Quackondo due to
+[a bug in a library it uses](https://github.com/chzyer/readline/issues/229).
+The installer in the Releases page ships with a
+[patched version of Macondo](https://github.com/pommicket/macondo).
+
 File organization:
 ------------------
 * quackle/ - libquackle sources.  libquackle is the engine, and can be linked to any convenient interface.  It does not use Qt.
