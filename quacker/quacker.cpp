@@ -1063,6 +1063,8 @@ void TopLevel::simulate(bool startSimulation)
 	if (startSimulation)
 	{
 		if (m_macondo->useForSimulation()) {
+			// clear Quackle simulator results if it was used before this
+			clearSimulationResults();
 			if (!m_macondo->simulate()) {
 				// Macondo failed to start
 				m_simulateAction->setChecked(false);
