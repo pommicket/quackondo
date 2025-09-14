@@ -31,8 +31,10 @@ Quackle
 *.suo
 *.db
 *.dmg
+*.tar.xz
 dawginput.raw
 playabilities.raw
 smaller.raw
 DerivedData
 compile_commands.json
+macondo
