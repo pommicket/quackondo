@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=Quackondo
-AppVerName=Quackondo 1.0.4
+AppVerName=Quackondo 1.0.5
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 DefaultDirName={commonpf}\Quackondo
@@ -12,7 +12,7 @@ ChangesAssociations=yes
 UninstallDisplayIcon={app}\Quackle.exe
 
 [Icons]
-Name: "{group}\Quackondo 1.0.4"; Filename: "{app}\Quackle.exe"; WorkingDir: "{app}"
+Name: "{group}\Quackondo 1.0.5"; Filename: "{app}\Quackle.exe"; WorkingDir: "{app}"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Quackle.org"
