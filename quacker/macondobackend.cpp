@@ -36,7 +36,16 @@ static const QByteArray preEndgameProgressMarker("\"message\":\"handled ");
 static const QByteArray preEndgamePlaysStartMarker("Play                Wins    %Win    Spread   Outcomes");
 static const QByteArray preEndgamePlaysEndMarker("❌ marks plays cut off early");
 
-static int getPlyNumber(const Quackle::GamePosition &position) {
+static int getPlyNumber(const Quackle::Game *game) {
+	const Quackle::GamePosition &position = game->currentPosition();
+	// macondo doesn't counts challenging-off as a separate turn.
+	// so we have to add the # of plays challenged off to the ply number
+	int playsChallengedOff = 0;
+	for (const Quackle::GamePosition &prevPos: game->history()) {
+		if (&prevPos == &position)
+			break;
+		playsChallengedOff += prevPos.moveMade().isChallengedPhoney();
+	}
 	int playerIndex = 0, numPlayers = position.players().size();
 	for (const Quackle::Player &player: position.players()) {
 		if (player.id() == position.playerOnTurn().id()) {
@@ -48,7 +57,7 @@ static int getPlyNumber(const Quackle::GamePosition &position) {
 		throw "couldn't find player in player list";
 	}
 	return (position.turnNumber() - 1) * numPlayers
-		+ playerIndex;
+		+ playerIndex + playsChallengedOff;
 }
 
 // locale-independent version of isspace
@@ -673,7 +682,7 @@ void MacondoBackend::loadGCG() {
 	std::stringstream commands;
 	commands << "set lexicon " << lexicon << "\n"
 		<< "load '" << filename << "'\n"
-		<< "turn " << getPlyNumber(m_game->currentPosition()) << "\n";
+		<< "turn " << getPlyNumber(m_game) << "\n";
 	send(commands.str().c_str());
 }
 
