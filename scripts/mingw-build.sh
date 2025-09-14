@@ -8,6 +8,12 @@ else
 	MODE=$1
 fi
 [ "$MACONDO" = '' ] && MACONDO="$(pwd)/macondo"
+which pacman >/dev/null || { echo 'pacman not found. Try running with msys UCRT64.'; exit 1; }
+if [ '!' -d "$MACONDO" ]; then
+	echo "Macondo directory $MACONDO doesn't exist."
+	echo "Try setting MACONDO environment variable, or putting Macondo at $MACONDO."
+	exit 1
+fi
 pacman --needed -S mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-qt5-base mingw-w64-ucrt-x86_64-gcc
 mkdir -p quacker/build
 cd quacker/build
@@ -29,3 +35,4 @@ for folder in styles imageformats platforms; do
 	rm -rf $MODE/$folder
 	cp -r /ucrt64/share/qt5/plugins/$folder $MODE/
 done
+echo 'Finished. You should now be able to build the installer with Inno Setup.'
